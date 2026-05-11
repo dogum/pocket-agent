@@ -50,7 +50,7 @@ export function FeedScreen(): JSX.Element {
         ) : (
           <>
             <h1 className="t-headline greeting">
-              The Agent <em>App</em>
+              Pocket <em>Agent</em>
             </h1>
             <p className="summary">
               Send anything — text, files, links. Your agent processes it

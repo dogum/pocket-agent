@@ -10,6 +10,13 @@ Pocket Agent is a local-first substrate where managed AI agents ingest the unstr
 
 This is the open-source companion to the concept. It runs entirely on your machine against the **Anthropic Managed Agents** beta — your API key, your data, your SQLite file. No telemetry, no third parties.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="A real agent-emitted artifact: data row, markdown body, FLAG label, agent-paced reasoning" width="380">
+</p>
+<p align="center">
+  <em>A real run: send a paragraph about an evening run with a stray symptom; the agent surfaces a structured FLAG artifact composed from a data row, markdown analysis, alert, and a `question_set` for follow-up.</em>
+</p>
+
 ## What it looks like
 
 The agent emits one **Artifact** per ingest — a JSON object composed from a vocabulary of 23 component types: data rows, sparklines, line charts, tables, alerts, timelines, progress, comparisons, quotes, checklists, sources, status lists, images, maps, key/value lists, link previews, sandboxed HTML embeds, paragraphs, headings, dividers, markdown, and **question sets** the user can fill in inline. The agent picks, arranges, and styles them around your context — a marathon training session looks like a training app, a home renovation looks like a job tracker, a research project looks like a workbench.
