@@ -32,7 +32,10 @@ import { newId } from './id.js'
 import { buildPrompt } from '../orchestrator/buildPrompt.js'
 import { streamSession } from '../orchestrator/streamSession.js'
 import { parseArtifact } from '../orchestrator/parseArtifact.js'
+import { persistArtifact } from '../orchestrator/persistArtifact.js'
 import { rowToIngest } from '../db.js'
+import { enqueueRun } from './runQueue.js'
+import { publish } from './eventBus.js'
 import * as log from './log.js'
 
 interface AgentRef {
@@ -188,102 +191,107 @@ async function fireTrigger(sessionId: string, triggerId: string): Promise<void> 
     .get(ingestId) as Parameters<typeof rowToIngest>[0]
   const ingest = rowToIngest(ingestRow)
 
-  // ── Build prompt, drain stream ──────────────────────────────────
-  const prompt = buildPrompt({ session, ingest, db })
+  // ── Route the run through the shared per-session queue so we
+  //     never collide with user ingests, reflexes, or live updates.
+  await enqueueRun({
+    sessionId: session.id,
+    priority: 'trigger',
+    description: `Trigger: ${trigger.description || trigger.schedule}`,
+    run: async () => {
+      const prompt = buildPrompt({ session, ingest, db })
 
-  const generator = streamSession({
-    client,
-    agentId: agent.agent_id,
-    environmentId: agent.environment_id,
-    localSessionId: session.id,
-    ingestId: ingest.id,
-    promptText: prompt.text,
-    fileIds: prompt.fileIds,
-    title: `[trigger] ${trigger.description || session.name}`,
-    // Trigger-fired runs reuse the same managed session as user-driven
-    // runs so the agent keeps continuity across both.
-    existingManagedSessionId: session.managed_session_id ?? undefined,
+      const generator = streamSession({
+        client,
+        agentId: agent.agent_id,
+        environmentId: agent.environment_id,
+        localSessionId: session.id,
+        ingestId: ingest.id,
+        promptText: prompt.text,
+        fileIds: prompt.fileIds,
+        title: `[trigger] ${trigger.description || session.name}`,
+        existingManagedSessionId: session.managed_session_id ?? undefined,
+      })
+
+      let agentText = ''
+      let result = await generator.next()
+      while (!result.done) {
+        const evt = result.value
+        if (evt.type === 'agent.text_delta') agentText += evt.text
+        publish({
+          type: 'run',
+          event: evt,
+          session_id: session.id,
+          priority: 'trigger',
+        })
+        result = await generator.next()
+      }
+      const final = result.value
+
+      if (final.exitReason === 'end_turn' && final.draft) {
+        const artifact = persistArtifact({
+          db,
+          sessionId: session.id,
+          draft: final.draft,
+        })
+        db.prepare('UPDATE ingests SET status = ? WHERE id = ?').run(
+          'processed',
+          ingest.id,
+        )
+        publish({
+          type: 'run',
+          event: { type: 'artifact.ready', artifact },
+          session_id: session.id,
+          priority: 'trigger',
+        })
+        log.ok(`scheduler · artifact ${artifact.id} persisted`)
+      } else if (final.exitReason === 'parse_error') {
+        const parsed = parseArtifact(agentText)
+        db.prepare(
+          'UPDATE ingests SET status = ?, error_message = ? WHERE id = ?',
+        ).run(
+          'failed',
+          parsed.ok
+            ? 'unexpected: parse succeeded on retry'
+            : final.errorMessage ?? 'parse error',
+          ingest.id,
+        )
+        log.warn(`scheduler · parse failed: ${final.errorMessage}`)
+      } else {
+        db.prepare(
+          'UPDATE ingests SET status = ?, error_message = ? WHERE id = ?',
+        ).run('failed', final.errorMessage ?? final.exitReason, ingest.id)
+        log.warn(`scheduler · run ${final.exitReason}`)
+      }
+
+      if (final.managedSessionId) {
+        db.prepare(
+          'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
+        ).run(
+          final.managedSessionId,
+          final.exitReason === 'end_turn' ? 'idle' : final.exitReason,
+          session.id,
+        )
+      }
+
+      // Re-read the session, mutate the trigger, write back.
+      const fresh = db
+        .prepare('SELECT * FROM sessions WHERE id = ?')
+        .get(session.id) as Parameters<typeof rowToSession>[0] | undefined
+      if (fresh) {
+        const cfg = JSON.parse(fresh.config) as SessionConfig
+        if (cfg.triggers) {
+          cfg.triggers = cfg.triggers.map((t) =>
+            t.id === trigger.id
+              ? { ...t, last_fired_at: new Date().toISOString() }
+              : t,
+          )
+          db.prepare(
+            'UPDATE sessions SET config = ?, updated_at = ? WHERE id = ?',
+          ).run(JSON.stringify(cfg), new Date().toISOString(), session.id)
+        }
+      }
+    },
   })
-
-  let agentText = ''
-  let result = await generator.next()
-  while (!result.done) {
-    const evt = result.value
-    if (evt.type === 'agent.text_delta') agentText += evt.text
-    result = await generator.next()
-  }
-  const final = result.value
-
-  // ── Persist artifact + finalize ingest ──────────────────────────
-  if (final.exitReason === 'end_turn' && final.draft) {
-    const artId = newId('art')
-    const created_at = new Date().toISOString()
-    db.prepare(`
-      INSERT INTO artifacts (id, session_id, priority, notify, header, components, actions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      artId,
-      session.id,
-      final.draft.priority,
-      final.draft.notify ? 1 : 0,
-      JSON.stringify(final.draft.header),
-      JSON.stringify(final.draft.components),
-      JSON.stringify(final.draft.actions ?? []),
-      created_at,
-    )
-    db.prepare('UPDATE ingests SET status = ? WHERE id = ?').run(
-      'processed',
-      ingest.id,
-    )
-    log.ok(`scheduler · artifact ${artId} persisted`)
-  } else if (final.exitReason === 'parse_error') {
-    // Try a salvage parse with a clearer error message.
-    const parsed = parseArtifact(agentText)
-    db.prepare(
-      'UPDATE ingests SET status = ?, error_message = ? WHERE id = ?',
-    ).run(
-      'failed',
-      parsed.ok
-        ? 'unexpected: parse succeeded on retry'
-        : final.errorMessage ?? 'parse error',
-      ingest.id,
-    )
-    log.warn(`scheduler · parse failed: ${final.errorMessage}`)
-  } else {
-    db.prepare(
-      'UPDATE ingests SET status = ?, error_message = ? WHERE id = ?',
-    ).run('failed', final.errorMessage ?? final.exitReason, ingest.id)
-    log.warn(`scheduler · run ${final.exitReason}`)
-  }
-
-  // ── Update session.run_status + trigger.last_fired_at ───────────
-  if (final.managedSessionId) {
-    db.prepare(
-      'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
-    ).run(
-      final.managedSessionId,
-      final.exitReason === 'end_turn' ? 'idle' : final.exitReason,
-      session.id,
-    )
-  }
-
-  // Re-read the session, mutate the trigger, write back.
-  const fresh = db
-    .prepare('SELECT * FROM sessions WHERE id = ?')
-    .get(session.id) as Parameters<typeof rowToSession>[0] | undefined
-  if (fresh) {
-    const cfg = JSON.parse(fresh.config) as SessionConfig
-    if (cfg.triggers) {
-      cfg.triggers = cfg.triggers.map((t) =>
-        t.id === trigger.id
-          ? { ...t, last_fired_at: new Date().toISOString() }
-          : t,
-      )
-      db.prepare(
-        'UPDATE sessions SET config = ?, updated_at = ? WHERE id = ?',
-      ).run(JSON.stringify(cfg), new Date().toISOString(), session.id)
-    }
-  }
 }
 
 /** Re-read a session and reconcile its registered triggers. Call after

@@ -10,13 +10,21 @@ import type { Database as DB } from 'better-sqlite3'
 
 import {
   getProfile,
+  recentObservationsForSession,
   rowToArtifact,
   rowToIngest,
 } from '../db.js'
-import type { Artifact, Ingest, Session } from '../../shared/index.js'
+import type {
+  Artifact,
+  Ingest,
+  Observation,
+  Session,
+  Source,
+} from '../../shared/index.js'
 
 const RECENT_ARTIFACT_LIMIT = 5
 const RECENT_INGEST_LIMIT = 5
+const RECENT_OBSERVATIONS_PER_SOURCE = 5
 
 /** Truncate a long string to a token-friendly length, suffixed if cut. */
 function truncate(s: string | null | undefined, max: number): string {
@@ -115,6 +123,28 @@ export function buildPrompt({
     lines.push('')
   }
 
+  // ── Ambient observations from attached sources ──────────────────
+  const observations = recentObservationsForSession(
+    db,
+    session.id,
+    RECENT_OBSERVATIONS_PER_SOURCE,
+  )
+  const haveObservations = observations.some((o) => o.observations.length > 0)
+  if (haveObservations) {
+    lines.push('## Recent observations from attached sources')
+    lines.push(
+      'These are signals you receive between user turns. The user has not necessarily acted on them. You can pull on these threads — propose a reflex_proposal if a pattern repeats, or reference them in your artifact when relevant.',
+    )
+    lines.push('')
+    lines.push('<recent_observations>')
+    for (const { source, observations: list } of observations) {
+      if (list.length === 0) continue
+      lines.push(renderSourceObservations(source, list))
+    }
+    lines.push('</recent_observations>')
+    lines.push('')
+  }
+
   lines.push('## Your task')
   lines.push(
     'Analyze the new input in the context of this session. Produce one Artifact JSON object as your final message — no preamble, no markdown fences, just the JSON.',
@@ -124,4 +154,28 @@ export function buildPrompt({
   if (ingest.metadata.file_id) fileIds.push(ingest.metadata.file_id)
 
   return { text: lines.join('\n'), fileIds }
+}
+
+function renderSourceObservations(
+  source: Source,
+  observations: Observation[],
+): string {
+  const lines: string[] = []
+  lines.push(`<source name="${source.name}" label="${source.label}">`)
+  for (const o of observations) {
+    lines.push(
+      `  <observation at="${o.observed_at}" id="${o.id}">${escape(o.summary)}</observation>`,
+    )
+    // Include the JSON payload as a tight CDATA-ish block so the agent
+    // can match conditions exactly when proposing reflexes / subscriptions.
+    lines.push(
+      `  <payload>${JSON.stringify(o.payload)}</payload>`,
+    )
+  }
+  lines.push(`</source>`)
+  return lines.join('\n')
+}
+
+function escape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }

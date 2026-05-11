@@ -2,17 +2,21 @@
 // Hono server entry — local API for the React web client.
 //
 // Routes mounted under /api:
-//   GET    /api/health          — liveness check
-//   GET    /api/state           — agent + first-run hint
-//   GET    /api/sessions        — list
-//   POST   /api/sessions        — create
-//   GET    /api/sessions/:id    — fetch one
-//   DELETE /api/sessions/:id    — delete (cascades artifacts/briefings)
-//   POST   /api/ingests         — submit text/link/file (multipart)
-//   GET    /api/artifacts       — paged feed (?session_id, ?before, ?limit)
-//   GET    /api/artifacts/:id   — fetch one
-//   POST   /api/run             — kick off agent run for a session (SSE)
-//   GET    /api/files/:id       — proxy file content (Anthropic Files API)
+//   GET    /api/health                        — liveness check
+//   GET    /api/state                         — agent + first-run hint
+//   GET    /api/sessions                      — list
+//   POST   /api/sessions                      — create
+//   GET    /api/sessions/:id                  — fetch one
+//   DELETE /api/sessions/:id                  — delete (cascades)
+//   GET    /api/sessions/:id/triggers         — cron-style triggers (Phase 12)
+//   GET    /api/sessions/:id/reflexes         — agent-authored watchers (Phase 21)
+//   POST   /api/ingests                       — submit text/link/file
+//   GET    /api/artifacts                     — paged feed
+//   GET    /api/artifacts/:id                 — fetch one
+//   POST   /api/run                           — kick off agent run (SSE)
+//   GET    /api/files/:id                     — proxy file content
+//   GET    /api/sources                       — list / CRUD ambient sources
+//   GET    /api/events                        — long-lived ambient SSE
 //
 // We bind to localhost only — there is no auth, and the SQLite file is
 // the source of truth for everything user-private. Do not expose this
@@ -37,6 +41,22 @@ import { stateRoutes } from './routes/state.js'
 import { profileRoutes } from './routes/profile.js'
 import { dataRoutes } from './routes/data.js'
 import { triggersRoutes } from './routes/triggers.js'
+import { sourcesRoutes } from './routes/sources.js'
+import { reflexesRoutes } from './routes/reflexes.js'
+import { eventsRoutes } from './routes/events.js'
+import {
+  ensureFakePulseSource,
+  reconcileFakePulse,
+  shutdownFakePulse,
+} from './orchestrator/fakePulse.js'
+import {
+  initSourcePollers,
+  shutdownSourcePollers,
+} from './orchestrator/sourcePoll.js'
+import {
+  initMcpClients,
+  shutdownMcpClients,
+} from './orchestrator/mcpClient.js'
 
 let config: Config
 try {
@@ -50,27 +70,32 @@ try {
 const db = getDb(config.dbPath)
 log.detail('db', config.dbPath)
 
-// Spin up the trigger scheduler — registers any saved triggers and
-// owns the lifecycle of subsequent ones.
-initScheduler({
-  db,
-  client: createClient(config),
-  getAgent: () => {
-    const a = getAgentState(db)
-    if (!a) return null
-    return { agent_id: a.agent_id, environment_id: a.environment_id }
-  },
-})
+const client = createClient(config)
+const getAgent = (): { agent_id: string; environment_id: string } | null => {
+  const a = getAgentState(db)
+  if (!a) return null
+  return { agent_id: a.agent_id, environment_id: a.environment_id }
+}
+
+// Seed the fake_pulse source row (disabled) so the user can flip it on
+// from the Sources screen without provisioning anything.
+ensureFakePulseSource(db)
+
+// Trigger scheduler (Phase 12).
+initScheduler({ db, client, getAgent })
+
+// Phase 21 — observation surface.
+initSourcePollers({ db, client, getAgent })
+initMcpClients({ db, client })
+reconcileFakePulse({ db, client, getAgent })
 
 const app = new Hono()
 
 app.use(
   '/api/*',
   cors({
-    // Vite dev server proxies /api → here, so origin checks are mostly
-    // moot. Permissive in dev; tighten before any internet exposure.
     origin: '*',
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
   }),
 )
@@ -83,13 +108,15 @@ app.route('/api/state', stateRoutes(config, db))
 app.route('/api/profile', profileRoutes(db))
 app.route('/api/data', dataRoutes(config, db))
 app.route('/api/sessions', sessionsRoutes(config, db))
-// Nested triggers routes — mounted under /api/sessions/:sessionId/triggers
 app.route('/api/sessions/:sessionId/triggers', triggersRoutes(db))
+app.route('/api/sessions/:sessionId/reflexes', reflexesRoutes(db))
 app.route('/api/artifacts', artifactsRoutes(db))
 app.route('/api/ingests', ingestsRoutes(config, db))
 app.route('/api/run', runRoutes(config, db))
 app.route('/api/files', filesRoutes(config, db))
 app.route('/api/search', searchRoutes(db))
+app.route('/api/sources', sourcesRoutes({ db, client, getAgent }))
+app.route('/api/events', eventsRoutes(db))
 
 app.notFound((c) => c.json({ error: 'not_found', path: c.req.path }, 404))
 
@@ -103,10 +130,12 @@ serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, () => {
   log.header('pocket-agent · api', `listening on http://127.0.0.1:${port}`)
 })
 
-// Graceful shutdown
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     log.info(`received ${signal}, shutting down`)
+    shutdownFakePulse()
+    shutdownSourcePollers()
+    shutdownMcpClients()
     db.close()
     process.exit(0)
   })
