@@ -257,6 +257,30 @@ export interface LinkPreviewComponent {
   domain?: string
 }
 
+/** A reflex (agent-authored watcher) the agent is proposing the user
+ *  approve. Once approved, the reflex fires automatically when matching
+ *  observations arrive on the named source. Approval / dismissal happens
+ *  inline in the artifact card; no separate flow.
+ *
+ *  Propose reflexes SPARINGLY — only after a pattern has clearly
+ *  repeated — and make them specific enough that the user can approve
+ *  without thinking hard. */
+export interface ReflexProposalComponent {
+  type: 'reflex_proposal'
+  /** Plain-language description ("when energy drops below 30 in the morning"). */
+  description: string
+  /** Source slug the proposal listens to. The web client resolves it to a Source row. */
+  source_name: string
+  /** AND of all conditions. Empty array → match every observation. */
+  conditions: import('./source.js').ReflexCondition[]
+  /** Prompt sent to the agent when the reflex fires. */
+  kickoff_prompt: string
+  /** Optional artifact-type hint (e.g. "alert", "plan"). */
+  artifact_hint?: string
+  /** Minimum seconds between fires. Defaults to 300 (5 min). */
+  debounce_seconds?: number
+}
+
 export type ArtifactComponent =
   | DataRowComponent
   | ParagraphComponent
@@ -281,6 +305,7 @@ export type ArtifactComponent =
   | MarkdownComponent
   | KeyValueListComponent
   | LinkPreviewComponent
+  | ReflexProposalComponent
 
 // ─── Artifact ────────────────────────────────────────────────────────
 export interface ArtifactHeader {
@@ -305,13 +330,24 @@ export interface Artifact {
   header: ArtifactHeader
   components: ArtifactComponent[]
   actions?: ArtifactAction[]
+  /** When set, observations from these sources matching the conditions
+   *  trigger an in-place re-run that updates this artifact. The prior
+   *  state lands in `artifact_versions` for the history sheet. */
+  subscribes_to?: import('./source.js').ArtifactSubscription[]
+  /** Number of in-place updates since creation. Set by the server. */
+  version?: number
+  /** ISO of the most recent in-place update, if any. Set by the server. */
+  last_updated_at?: string
 }
 
 /**
  * The raw shape the agent is asked to emit. The server adds id, session_id,
  * and created_at; the agent never invents those.
  */
-export type ArtifactDraft = Omit<Artifact, 'id' | 'session_id' | 'created_at'>
+export type ArtifactDraft = Omit<
+  Artifact,
+  'id' | 'session_id' | 'created_at' | 'version' | 'last_updated_at'
+>
 
 // ─── Briefing ────────────────────────────────────────────────────────
 export interface Briefing {

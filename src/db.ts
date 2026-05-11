@@ -20,12 +20,22 @@ import type {
   Artifact,
   ArtifactComponent,
   ArtifactAction,
+  ArtifactSubscription,
+  ArtifactVersion,
   Session,
   SessionConfig,
   Ingest,
   IngestMetadata,
   Briefing,
+  Source,
+  SourceConfig,
+  SourceKind,
+  SourceStatus,
+  Observation,
+  Reflex,
+  ReflexMatch,
 } from '../shared/index.js'
+import { DEFAULT_RING_BUFFER_SIZE } from '../shared/index.js'
 
 let db: DB | null = null
 
@@ -83,6 +93,7 @@ function migrate(db: DB): void {
   advance(1, migration_001)
   advance(2, migration_002)
   advance(3, migration_003)
+  advance(4, migration_004)
 }
 
 function migration_001(db: DB): void {
@@ -269,6 +280,100 @@ function migration_002(db: DB): void {
   `)
 }
 
+function migration_004(db: DB): void {
+  // Phase 21 — Sources, Observations, Reflexes, Living Artifacts.
+  db.exec(`
+    -- Long-lived external feeds the agent observes between user turns.
+    CREATE TABLE IF NOT EXISTS sources (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL
+        CHECK (kind IN ('mcp', 'webhook', 'polled_url', 'demo')),
+      name TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'disconnected'
+        CHECK (status IN
+          ('connected', 'disconnected', 'configuring', 'error', 'paused')),
+      config TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 0,
+      last_observation_at TEXT,
+      last_error TEXT,
+      ring_buffer_size INTEGER NOT NULL DEFAULT 200,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    -- Per-source ring buffer of observations. We trim on each insert
+    -- to keep at most ring_buffer_size rows per source.
+    CREATE TABLE IF NOT EXISTS observations (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+      observed_at TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_observations_source
+      ON observations(source_id, observed_at DESC);
+
+    -- Which sources are attached to which sessions. The kickoff
+    -- assembler pulls recent observations from attached sources.
+    CREATE TABLE IF NOT EXISTS session_sources (
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+      attached_at TEXT NOT NULL,
+      PRIMARY KEY (session_id, source_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_sources_by_source
+      ON session_sources(source_id);
+
+    -- Agent-authored watchers. Start as reflex_proposal components in an
+    -- artifact card; once approved by the user, they fire automatically
+    -- when matching observations arrive (debounced).
+    CREATE TABLE IF NOT EXISTS reflexes (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      description TEXT NOT NULL,
+      match TEXT NOT NULL,
+      kickoff_prompt TEXT NOT NULL,
+      artifact_hint TEXT,
+      debounce_seconds INTEGER NOT NULL DEFAULT 300,
+      last_fired_at TEXT,
+      fire_count INTEGER NOT NULL DEFAULT 0,
+      approved INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_reflexes_session
+      ON reflexes(session_id, updated_at DESC);
+
+    -- Add the subscribes_to / version / last_updated_at fields onto
+    -- artifacts. version starts at 0 (the initial); each in-place
+    -- update increments it and writes the prior state into artifact_versions.
+    ALTER TABLE artifacts ADD COLUMN subscribes_to TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE artifacts ADD COLUMN version INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE artifacts ADD COLUMN last_updated_at TEXT;
+
+    -- Snapshots of an artifact's prior state before each in-place update.
+    -- Row 0 is the original; row N is the state captured just before the
+    -- Nth update overwrote it.
+    CREATE TABLE IF NOT EXISTS artifact_versions (
+      id TEXT PRIMARY KEY,
+      artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+      version INTEGER NOT NULL,
+      header TEXT NOT NULL,
+      components TEXT NOT NULL,
+      triggering_observation_id TEXT,
+      reason TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE (artifact_id, version)
+    );
+    CREATE INDEX IF NOT EXISTS idx_artifact_versions
+      ON artifact_versions(artifact_id, version DESC);
+  `)
+}
+
 // ─── Row mappers ─────────────────────────────────────────────────────
 
 interface SessionRow {
@@ -312,10 +417,16 @@ interface ArtifactRow {
   components: string
   actions: string
   archived: number
+  subscribes_to: string | null
+  version: number | null
+  last_updated_at: string | null
   created_at: string
 }
 
 export function rowToArtifact(row: ArtifactRow): Artifact {
+  const subs = row.subscribes_to
+    ? (JSON.parse(row.subscribes_to) as ArtifactSubscription[])
+    : []
   return {
     id: row.id,
     session_id: row.session_id,
@@ -324,6 +435,9 @@ export function rowToArtifact(row: ArtifactRow): Artifact {
     header: JSON.parse(row.header) as Artifact['header'],
     components: JSON.parse(row.components) as ArtifactComponent[],
     actions: JSON.parse(row.actions) as ArtifactAction[],
+    subscribes_to: subs.length > 0 ? subs : undefined,
+    version: row.version ?? 0,
+    last_updated_at: row.last_updated_at ?? undefined,
     created_at: row.created_at,
   }
 }
@@ -489,4 +603,578 @@ export function setAgentState(database: DB, state: AgentState): void {
       now,
       now,
     )
+}
+
+// ─── Sources / Observations / Reflexes ───────────────────────────────
+
+interface SourceRow {
+  id: string
+  kind: SourceKind
+  name: string
+  label: string
+  description: string | null
+  status: SourceStatus
+  config: string
+  enabled: number
+  last_observation_at: string | null
+  last_error: string | null
+  ring_buffer_size: number
+  created_at: string
+  updated_at: string
+}
+
+export function rowToSource(row: SourceRow): Source {
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    label: row.label,
+    description: row.description ?? undefined,
+    status: row.status,
+    config: JSON.parse(row.config) as SourceConfig,
+    enabled: row.enabled === 1,
+    last_observation_at: row.last_observation_at ?? undefined,
+    last_error: row.last_error ?? undefined,
+    ring_buffer_size: row.ring_buffer_size,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+export function listSources(database: DB): Source[] {
+  const rows = database
+    .prepare(`SELECT * FROM sources ORDER BY created_at ASC`)
+    .all() as SourceRow[]
+  return rows.map(rowToSource)
+}
+
+export function getSource(database: DB, id: string): Source | null {
+  const row = database
+    .prepare(`SELECT * FROM sources WHERE id = ?`)
+    .get(id) as SourceRow | undefined
+  return row ? rowToSource(row) : null
+}
+
+export function getSourceByName(
+  database: DB,
+  name: string,
+): Source | null {
+  const row = database
+    .prepare(`SELECT * FROM sources WHERE name = ?`)
+    .get(name) as SourceRow | undefined
+  return row ? rowToSource(row) : null
+}
+
+export function insertSource(database: DB, source: Source): void {
+  database
+    .prepare(`
+      INSERT INTO sources (
+        id, kind, name, label, description, status, config, enabled,
+        last_observation_at, last_error, ring_buffer_size,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      source.id,
+      source.kind,
+      source.name,
+      source.label,
+      source.description ?? null,
+      source.status,
+      JSON.stringify(source.config),
+      source.enabled ? 1 : 0,
+      source.last_observation_at ?? null,
+      source.last_error ?? null,
+      source.ring_buffer_size,
+      source.created_at,
+      source.updated_at,
+    )
+}
+
+export function updateSource(database: DB, source: Source): void {
+  database
+    .prepare(`
+      UPDATE sources SET
+        kind = ?, name = ?, label = ?, description = ?, status = ?,
+        config = ?, enabled = ?, last_observation_at = ?, last_error = ?,
+        ring_buffer_size = ?, updated_at = ?
+      WHERE id = ?
+    `)
+    .run(
+      source.kind,
+      source.name,
+      source.label,
+      source.description ?? null,
+      source.status,
+      JSON.stringify(source.config),
+      source.enabled ? 1 : 0,
+      source.last_observation_at ?? null,
+      source.last_error ?? null,
+      source.ring_buffer_size,
+      source.updated_at,
+      source.id,
+    )
+}
+
+export function deleteSource(database: DB, id: string): void {
+  database.prepare(`DELETE FROM sources WHERE id = ?`).run(id)
+}
+
+interface ObservationRow {
+  id: string
+  source_id: string
+  observed_at: string
+  payload: string
+  summary: string
+  created_at: string
+}
+
+function rowToObservation(row: ObservationRow): Observation {
+  return {
+    id: row.id,
+    source_id: row.source_id,
+    observed_at: row.observed_at,
+    payload: JSON.parse(row.payload) as Record<string, unknown>,
+    summary: row.summary,
+  }
+}
+
+/** Insert an observation and trim the source's ring buffer to its cap.
+ *  Returns the inserted observation. */
+export function recordObservation(
+  database: DB,
+  obs: Observation,
+): Observation {
+  const insert = database.prepare(`
+    INSERT INTO observations
+      (id, source_id, observed_at, payload, summary, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+  const cap = database
+    .prepare(`SELECT ring_buffer_size FROM sources WHERE id = ?`)
+    .get(obs.source_id) as { ring_buffer_size?: number } | undefined
+  const limit = cap?.ring_buffer_size ?? DEFAULT_RING_BUFFER_SIZE
+
+  const tx = database.transaction(() => {
+    insert.run(
+      obs.id,
+      obs.source_id,
+      obs.observed_at,
+      JSON.stringify(obs.payload),
+      obs.summary,
+      new Date().toISOString(),
+    )
+    // Ring-buffer trim — keep the N most recent rows.
+    database
+      .prepare(`
+        DELETE FROM observations
+        WHERE source_id = ?
+          AND id NOT IN (
+            SELECT id FROM observations
+            WHERE source_id = ?
+            ORDER BY observed_at DESC
+            LIMIT ?
+          )
+      `)
+      .run(obs.source_id, obs.source_id, limit)
+    database
+      .prepare(`
+        UPDATE sources SET last_observation_at = ?, updated_at = ?
+        WHERE id = ?
+      `)
+      .run(obs.observed_at, new Date().toISOString(), obs.source_id)
+  })
+  tx()
+  return obs
+}
+
+export function listObservations(
+  database: DB,
+  sourceId: string,
+  limit = 50,
+): Observation[] {
+  const rows = database
+    .prepare(`
+      SELECT * FROM observations
+      WHERE source_id = ?
+      ORDER BY observed_at DESC
+      LIMIT ?
+    `)
+    .all(sourceId, limit) as ObservationRow[]
+  return rows.map(rowToObservation)
+}
+
+export function getObservation(
+  database: DB,
+  id: string,
+): Observation | null {
+  const row = database
+    .prepare(`SELECT * FROM observations WHERE id = ?`)
+    .get(id) as ObservationRow | undefined
+  return row ? rowToObservation(row) : null
+}
+
+/** Recent observations from sources attached to a session. Used to
+ *  build the <recent_observations> block for the kickoff. */
+export function recentObservationsForSession(
+  database: DB,
+  sessionId: string,
+  perSourceLimit = 5,
+): Array<{ source: Source; observations: Observation[] }> {
+  const sourceRows = database
+    .prepare(`
+      SELECT s.* FROM session_sources ss
+      JOIN sources s ON s.id = ss.source_id
+      WHERE ss.session_id = ? AND s.enabled = 1
+      ORDER BY ss.attached_at ASC
+    `)
+    .all(sessionId) as SourceRow[]
+  return sourceRows.map((sr) => {
+    const source = rowToSource(sr)
+    const observations = listObservations(
+      database,
+      source.id,
+      perSourceLimit,
+    )
+    return { source, observations }
+  })
+}
+
+// ─── Session ↔ Source attachment ─────────────────────────────────────
+
+export function attachSource(
+  database: DB,
+  sessionId: string,
+  sourceId: string,
+): void {
+  database
+    .prepare(`
+      INSERT OR IGNORE INTO session_sources
+        (session_id, source_id, attached_at)
+      VALUES (?, ?, ?)
+    `)
+    .run(sessionId, sourceId, new Date().toISOString())
+}
+
+export function detachSource(
+  database: DB,
+  sessionId: string,
+  sourceId: string,
+): void {
+  database
+    .prepare(`
+      DELETE FROM session_sources
+      WHERE session_id = ? AND source_id = ?
+    `)
+    .run(sessionId, sourceId)
+}
+
+export function sessionsAttachedToSource(
+  database: DB,
+  sourceId: string,
+): string[] {
+  const rows = database
+    .prepare(`SELECT session_id FROM session_sources WHERE source_id = ?`)
+    .all(sourceId) as Array<{ session_id: string }>
+  return rows.map((r) => r.session_id)
+}
+
+export function sourcesForSession(
+  database: DB,
+  sessionId: string,
+): Source[] {
+  const rows = database
+    .prepare(`
+      SELECT s.* FROM session_sources ss
+      JOIN sources s ON s.id = ss.source_id
+      WHERE ss.session_id = ?
+      ORDER BY ss.attached_at ASC
+    `)
+    .all(sessionId) as SourceRow[]
+  return rows.map(rowToSource)
+}
+
+// ─── Reflexes ────────────────────────────────────────────────────────
+
+interface ReflexRow {
+  id: string
+  session_id: string
+  description: string
+  match: string
+  kickoff_prompt: string
+  artifact_hint: string | null
+  debounce_seconds: number
+  last_fired_at: string | null
+  fire_count: number
+  approved: number
+  enabled: number
+  created_at: string
+  updated_at: string
+}
+
+function rowToReflex(row: ReflexRow): Reflex {
+  return {
+    id: row.id,
+    session_id: row.session_id,
+    description: row.description,
+    match: JSON.parse(row.match) as ReflexMatch,
+    kickoff_prompt: row.kickoff_prompt,
+    artifact_hint: row.artifact_hint ?? undefined,
+    debounce_seconds: row.debounce_seconds,
+    last_fired_at: row.last_fired_at ?? undefined,
+    fire_count: row.fire_count,
+    approved: row.approved === 1,
+    enabled: row.enabled === 1,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+export function insertReflex(database: DB, reflex: Reflex): void {
+  database
+    .prepare(`
+      INSERT INTO reflexes (
+        id, session_id, description, match, kickoff_prompt, artifact_hint,
+        debounce_seconds, last_fired_at, fire_count, approved, enabled,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      reflex.id,
+      reflex.session_id,
+      reflex.description,
+      JSON.stringify(reflex.match),
+      reflex.kickoff_prompt,
+      reflex.artifact_hint ?? null,
+      reflex.debounce_seconds,
+      reflex.last_fired_at ?? null,
+      reflex.fire_count,
+      reflex.approved ? 1 : 0,
+      reflex.enabled ? 1 : 0,
+      reflex.created_at,
+      reflex.updated_at,
+    )
+}
+
+export function updateReflex(database: DB, reflex: Reflex): void {
+  database
+    .prepare(`
+      UPDATE reflexes SET
+        description = ?, match = ?, kickoff_prompt = ?, artifact_hint = ?,
+        debounce_seconds = ?, last_fired_at = ?, fire_count = ?,
+        approved = ?, enabled = ?, updated_at = ?
+      WHERE id = ?
+    `)
+    .run(
+      reflex.description,
+      JSON.stringify(reflex.match),
+      reflex.kickoff_prompt,
+      reflex.artifact_hint ?? null,
+      reflex.debounce_seconds,
+      reflex.last_fired_at ?? null,
+      reflex.fire_count,
+      reflex.approved ? 1 : 0,
+      reflex.enabled ? 1 : 0,
+      reflex.updated_at,
+      reflex.id,
+    )
+}
+
+export function deleteReflex(database: DB, id: string): void {
+  database.prepare(`DELETE FROM reflexes WHERE id = ?`).run(id)
+}
+
+export function getReflex(database: DB, id: string): Reflex | null {
+  const row = database
+    .prepare(`SELECT * FROM reflexes WHERE id = ?`)
+    .get(id) as ReflexRow | undefined
+  return row ? rowToReflex(row) : null
+}
+
+export function listReflexesForSession(
+  database: DB,
+  sessionId: string,
+): Reflex[] {
+  const rows = database
+    .prepare(`
+      SELECT * FROM reflexes WHERE session_id = ?
+      ORDER BY created_at DESC
+    `)
+    .all(sessionId) as ReflexRow[]
+  return rows.map(rowToReflex)
+}
+
+/** Approved + enabled reflexes that watch the given source. The reflex
+ *  evaluator iterates these on each new observation. */
+export function activeReflexesForSource(
+  database: DB,
+  sourceId: string,
+): Reflex[] {
+  const rows = database
+    .prepare(`
+      SELECT * FROM reflexes
+      WHERE approved = 1 AND enabled = 1
+        AND json_extract(match, '$.source_id') = ?
+      ORDER BY created_at ASC
+    `)
+    .all(sourceId) as ReflexRow[]
+  return rows.map(rowToReflex)
+}
+
+// ─── Artifact subscriptions + version history ────────────────────────
+
+/** Artifacts that subscribe to the given source. Each row may have a
+ *  filter we evaluate per-observation before re-running the agent. */
+export function artifactsSubscribedToSource(
+  database: DB,
+  sourceId: string,
+): Artifact[] {
+  // SQLite doesn't have JSON-each helpers we can rely on for nested
+  // membership across versions, so we scan and filter in JS.
+  const rows = database
+    .prepare(`
+      SELECT * FROM artifacts
+      WHERE archived = 0 AND subscribes_to LIKE '%' || ? || '%'
+    `)
+    .all(sourceId) as ArtifactRow[]
+  const out: Artifact[] = []
+  for (const r of rows) {
+    const a = rowToArtifact(r)
+    if (a.subscribes_to?.some((s) => s.source_id === sourceId)) out.push(a)
+  }
+  return out
+}
+
+export function setArtifactSubscriptions(
+  database: DB,
+  artifactId: string,
+  subs: ArtifactSubscription[],
+): void {
+  database
+    .prepare(`UPDATE artifacts SET subscribes_to = ? WHERE id = ?`)
+    .run(JSON.stringify(subs), artifactId)
+}
+
+/** Replace the artifact's body in place and append a version row
+ *  capturing the prior state. Returns the new version number. */
+export function updateArtifactInPlace(
+  database: DB,
+  artifactId: string,
+  next: {
+    header: Artifact['header']
+    components: ArtifactComponent[]
+    actions?: ArtifactAction[]
+    subscribes_to?: ArtifactSubscription[]
+    triggering_observation_id?: string
+    reason?: string
+  },
+): { artifact: Artifact; version: number } | null {
+  const current = database
+    .prepare(`SELECT * FROM artifacts WHERE id = ?`)
+    .get(artifactId) as ArtifactRow | undefined
+  if (!current) return null
+  const now = new Date().toISOString()
+  const nextVersion = (current.version ?? 0) + 1
+
+  const tx = database.transaction(() => {
+    // Snapshot the prior state.
+    database
+      .prepare(`
+        INSERT INTO artifact_versions (
+          id, artifact_id, version, header, components,
+          triggering_observation_id, reason, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        `av_${nextVersion}_${artifactId}`,
+        artifactId,
+        current.version ?? 0,
+        current.header,
+        current.components,
+        null,
+        null,
+        current.last_updated_at ?? current.created_at,
+      )
+
+    // Write the new body.
+    database
+      .prepare(`
+        UPDATE artifacts SET
+          header = ?, components = ?, actions = ?,
+          subscribes_to = ?, version = ?, last_updated_at = ?
+        WHERE id = ?
+      `)
+      .run(
+        JSON.stringify(next.header),
+        JSON.stringify(next.components),
+        JSON.stringify(next.actions ?? []),
+        JSON.stringify(
+          next.subscribes_to ??
+            (current.subscribes_to ? JSON.parse(current.subscribes_to) : []),
+        ),
+        nextVersion,
+        now,
+        artifactId,
+      )
+
+    // Drop a pointer row for the NEW state too, so the history sheet
+    // can show "current" with the same triggering observation context.
+    database
+      .prepare(`
+        INSERT INTO artifact_versions (
+          id, artifact_id, version, header, components,
+          triggering_observation_id, reason, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        `av_${nextVersion}_curr_${artifactId}`,
+        artifactId,
+        nextVersion,
+        JSON.stringify(next.header),
+        JSON.stringify(next.components),
+        next.triggering_observation_id ?? null,
+        next.reason ?? null,
+        now,
+      )
+  })
+  tx()
+
+  const updated = database
+    .prepare(`SELECT * FROM artifacts WHERE id = ?`)
+    .get(artifactId) as ArtifactRow
+  return { artifact: rowToArtifact(updated), version: nextVersion }
+}
+
+interface ArtifactVersionRow {
+  id: string
+  artifact_id: string
+  version: number
+  header: string
+  components: string
+  triggering_observation_id: string | null
+  reason: string | null
+  created_at: string
+}
+
+export function listArtifactVersions(
+  database: DB,
+  artifactId: string,
+): ArtifactVersion[] {
+  const rows = database
+    .prepare(`
+      SELECT * FROM artifact_versions
+      WHERE artifact_id = ?
+      ORDER BY version DESC, created_at DESC
+    `)
+    .all(artifactId) as ArtifactVersionRow[]
+  return rows.map((r) => ({
+    id: r.id,
+    artifact_id: r.artifact_id,
+    version: r.version,
+    header: JSON.parse(r.header) as Artifact['header'],
+    components: JSON.parse(r.components) as ArtifactComponent[],
+    triggering_observation_id: r.triggering_observation_id ?? undefined,
+    reason: r.reason ?? undefined,
+    created_at: r.created_at,
+  }))
 }
