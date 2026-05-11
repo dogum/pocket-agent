@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/social-preview.png" alt="Pocket Agent — the agent builds the app for you" width="800">
+</p>
+
 # Pocket Agent
 
 > **The agent builds the app for you.**
