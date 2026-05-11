@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose a new feature, a new artifact component, or a UX improvement.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: What problem does this solve?
+      description: Tell the story of why this would matter. Concrete examples beat abstract reasoning.
+      placeholder: |
+        When the agent asks me for several numeric values, I can't really enter them.
+        Today it emits a checklist and I can only check boxes. I want to type values
+        inline, then submit them as one reply.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: |
+        For new components: rough JSON shape + when the agent should pick it over alternatives.
+        For new UI: sketch / screenshot / words.
+        For new endpoints: method + path + body shape.
+      placeholder: |
+        Add a `question_set` component:
+        ```json
+        { "type": "question_set", "questions": [{ "id": "sleep", "label": "..." }, ...] }
+        ```
+        Renderer gives each question an input field; on submit, send the values back
+        as a follow-up ingest.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you think about?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Where does this live?
+      options:
+        - Frontend (web/)
+        - Backend (src/)
+        - Schema (shared/)
+        - Agent prompt (src/agent-prompt.ts)
+        - New component type
+        - Build / CI / repo
+        - Other

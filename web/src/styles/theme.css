@@ -1,0 +1,382 @@
+/* ============================================================
+   THE OBSERVATORY — Visual System
+   Tokens, type scale, density variants, motion primitives.
+   Ported from the design package's ai-agent prototype.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter+Tight:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+:root {
+  /* === Field & surface === */
+  --bg: #08080A;
+  --bg-deep: #050507;
+  --surface-1: rgba(255,255,255,0.028);
+  --surface-2: rgba(255,255,255,0.055);
+  --surface-3: rgba(255,255,255,0.085);
+  --hairline: rgba(255,255,255,0.06);
+  --hairline-strong: rgba(255,255,255,0.12);
+
+  /* === Text === */
+  --text: #EFECE7;
+  --text-2: #A09D98;
+  --text-3: #6A6864;
+  --text-4: #45433F;
+
+  /* === Signal palette (Arctic teal primary) === */
+  --signal: #5CB8B2;
+  --signal-bright: #7FD4CE;
+  --signal-deep: #2E817C;
+  --signal-dim: rgba(92,184,178,0.13);
+  --signal-glow: rgba(92,184,178,0.30);
+  --signal-wash: rgba(92,184,178,0.05);
+
+  /* === Cool steel secondary === */
+  --cool: #8BA4C4;
+  --cool-dim: rgba(139,164,196,0.13);
+  --cool-glow: rgba(139,164,196,0.25);
+
+  /* === Severity === */
+  --green: #7EC49B;
+  --green-dim: rgba(126,196,155,0.13);
+  --amber: #D4B86A;
+  --amber-dim: rgba(212,184,106,0.13);
+  --red: #C45B5B;
+  --red-dim: rgba(196,91,91,0.13);
+
+  /* === Type === */
+  --serif: 'Cormorant', 'Cormorant Garamond', Georgia, serif;
+  --sans: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* === Type scale === */
+  --t-display: 44px;
+  --t-headline: 32px;
+  --t-title: 24px;
+  --t-subtitle: 20px;
+  --t-body: 14px;
+  --t-body-sm: 12px;
+  --t-caption: 11px;
+  --t-tag: 10px;
+  --t-data-lg: 22px;
+  --t-data: 16px;
+
+  /* === Density (default = balanced) === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 14px;
+  --space-lg: 20px;
+  --space-xl: 28px;
+  --space-2xl: 40px;
+  --card-pad: 18px;
+  --card-gap: 10px;
+  --screen-pad: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* === Motion === */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 180ms;
+  --dur: 320ms;
+  --dur-slow: 560ms;
+
+  /* === Dark theme ambient overlays === */
+  --device-border: rgba(255,255,255,0.08);
+  --device-shadow: 0 0 0 1px rgba(0,0,0,0.85),
+                   0 60px 140px rgba(0,0,0,0.7),
+                   0 0 80px rgba(92,184,178,0.05),
+                   inset 0 1px 0 rgba(255,255,255,0.05);
+  --grain-blend: overlay;
+  --grain-opacity: 0.55;
+  --sheet-scrim: rgba(0,0,0,0.55);
+  --sheet-shadow: 0 -24px 60px rgba(0,0,0,0.6), 0 -1px 0 rgba(255,255,255,0.06) inset;
+  --sheet-grip: rgba(255,255,255,0.18);
+  --dock-bg: rgba(15,15,18,0.96);
+  --dock-shadow: 0 24px 48px rgba(0,0,0,0.6);
+}
+
+/* === Density: editorial === */
+[data-density="editorial"] {
+  --t-display: 52px;
+  --t-headline: 38px;
+  --t-title: 28px;
+  --t-subtitle: 22px;
+  --t-body: 15px;
+  --t-body-sm: 13px;
+  --card-pad: 24px;
+  --card-gap: 14px;
+  --screen-pad: 26px;
+  --space-md: 18px;
+  --space-lg: 26px;
+  --space-xl: 36px;
+}
+
+/* === Density: instrument === */
+[data-density="instrument"] {
+  --t-display: 36px;
+  --t-headline: 26px;
+  --t-title: 19px;
+  --t-subtitle: 16px;
+  --t-body: 12.5px;
+  --t-body-sm: 11px;
+  --t-data-lg: 18px;
+  --t-data: 14px;
+  --card-pad: 13px;
+  --card-gap: 6px;
+  --screen-pad: 14px;
+  --space-md: 10px;
+  --space-lg: 14px;
+  --space-xl: 20px;
+}
+
+/* ============================================================
+   LIGHT MODE — "Observatory at dawn"
+   Cool ivory field, ink-toned text, deeper teal signal
+   ============================================================ */
+[data-theme="light"] {
+  --bg: #F4F2ED;
+  --bg-deep: #E8E5DE;
+  --surface-1: rgba(20,28,32,0.035);
+  --surface-2: rgba(20,28,32,0.065);
+  --surface-3: rgba(20,28,32,0.10);
+  --hairline: rgba(20,28,32,0.085);
+  --hairline-strong: rgba(20,28,32,0.18);
+
+  --text: #14201E;
+  --text-2: #4F5754;
+  --text-3: #828884;
+  --text-4: #B0B5B0;
+
+  /* Signal — deeper teal for legibility on light field */
+  --signal: #2E817C;
+  --signal-bright: #5CB8B2;
+  --signal-deep: #1F5957;
+  --signal-dim: rgba(46,129,124,0.12);
+  --signal-glow: rgba(46,129,124,0.22);
+  --signal-wash: rgba(46,129,124,0.04);
+
+  --cool: #4A6A92;
+  --cool-dim: rgba(74,106,146,0.12);
+  --cool-glow: rgba(74,106,146,0.22);
+
+  --green: #4F9772;
+  --green-dim: rgba(79,151,114,0.12);
+  --amber: #B0902F;
+  --amber-dim: rgba(176,144,47,0.12);
+  --red: #B0463F;
+  --red-dim: rgba(176,70,63,0.12);
+
+  --device-border: rgba(20,28,32,0.10);
+  --device-shadow: 0 0 0 1px rgba(20,28,32,0.10),
+                   0 60px 140px rgba(20,28,32,0.18),
+                   0 0 80px rgba(46,129,124,0.04),
+                   inset 0 1px 0 rgba(255,255,255,0.6);
+  --grain-blend: multiply;
+  --grain-opacity: 0.30;
+  --sheet-scrim: rgba(20,28,32,0.32);
+  --sheet-shadow: 0 -24px 60px rgba(20,28,32,0.22), 0 -1px 0 rgba(20,28,32,0.06) inset;
+  --sheet-grip: rgba(20,28,32,0.22);
+  --dock-bg: rgba(244,242,237,0.96);
+  --dock-shadow: 0 24px 48px rgba(20,28,32,0.18);
+}
+[data-theme="light"] .grain { mix-blend-mode: multiply; opacity: var(--grain-opacity); }
+
+/* === Reset === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+  letter-spacing: -0.005em;
+}
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+input, textarea { font: inherit; color: inherit; background: none; border: none; outline: none; }
+
+/* === Type primitives === */
+.t-display, .t-headline, .t-title, .t-subtitle {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+}
+.t-display  { font-size: var(--t-display); }
+.t-headline { font-size: var(--t-headline); }
+.t-title    { font-size: var(--t-title); line-height: 1.18; }
+.t-subtitle { font-size: var(--t-subtitle); line-height: 1.22; }
+.t-display em, .t-headline em, .t-title em, .t-subtitle em {
+  font-style: italic;
+  color: var(--signal);
+  font-weight: 400;
+}
+
+.t-body  { font-size: var(--t-body); line-height: 1.55; color: var(--text-2); font-weight: 400; }
+.t-body-strong { font-size: var(--t-body); line-height: 1.55; color: var(--text); font-weight: 500; }
+.t-body-sm  { font-size: var(--t-body-sm); line-height: 1.5; color: var(--text-2); font-weight: 400; }
+
+.t-mono, .mono { font-family: var(--mono); }
+
+/* Search highlight — used by the FTS snippet renderer */
+mark {
+  background: var(--signal-dim);
+  color: var(--signal);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.t-tag {
+  font-family: var(--mono);
+  font-size: var(--t-tag);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.t-caption { font-family: var(--mono); font-size: var(--t-caption); color: var(--text-3); letter-spacing: 0.02em; }
+
+/* === Grain === */
+.grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* === Card primitive === */
+.card {
+  background: var(--surface-1);
+  border-radius: var(--radius-lg);
+  padding: var(--card-pad);
+  position: relative;
+  transition: background var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.card.tap { cursor: pointer; }
+.card.tap:hover { background: var(--surface-2); }
+.card.tap:active { transform: scale(0.992); }
+.card.elevated {
+  background: var(--surface-2);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px rgba(0,0,0,0.35);
+}
+.card.bordered {
+  background: transparent;
+  border: 1px solid var(--hairline);
+}
+
+/* === Pill / chip === */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.chip.signal { background: var(--signal-dim); color: var(--signal); }
+.chip.cool   { background: var(--cool-dim); color: var(--cool); }
+.chip.amber  { background: var(--amber-dim); color: var(--amber); }
+.chip.green  { background: var(--green-dim); color: var(--green); }
+.chip.red    { background: var(--red-dim); color: var(--red); }
+
+/* === Hairline divider === */
+.hr { height: 1px; background: var(--hairline); margin: 12px 0; }
+
+/* === Section header === */
+.section-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* === Scrollbars (hidden) === */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ============================================================
+   SIGNATURE SCANNING MOTIONS — the brand idiom
+   ============================================================ */
+
+@keyframes scan-sweep {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes phosphor-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+@keyframes caret-blink {
+  0%, 60% { opacity: 1; }
+  60.01%, 100% { opacity: 0; }
+}
+
+@keyframes watching-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.06); }
+}
+
+@keyframes scan-vert {
+  0%   { transform: translateY(-30%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(130%); opacity: 0; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.shimmer {
+  background: linear-gradient(90deg,
+    var(--surface-1) 0%,
+    var(--surface-2) 50%,
+    var(--surface-1) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+.rise > *       { animation: rise-in 0.55s var(--ease-out) backwards; }
+.rise > *:nth-child(1) { animation-delay: 0.04s; }
+.rise > *:nth-child(2) { animation-delay: 0.10s; }
+.rise > *:nth-child(3) { animation-delay: 0.16s; }
+.rise > *:nth-child(4) { animation-delay: 0.22s; }
+.rise > *:nth-child(5) { animation-delay: 0.28s; }
+.rise > *:nth-child(6) { animation-delay: 0.34s; }
+.rise > *:nth-child(7) { animation-delay: 0.40s; }
+.rise > *:nth-child(8) { animation-delay: 0.46s; }

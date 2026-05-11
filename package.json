@@ -1,0 +1,67 @@
+{
+  "name": "pocket-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pocket Agent — a local-first substrate where managed AI agents ingest your unstructured inputs and surface them as interactive artifacts. The same code, a unique app per user.",
+  "license": "MIT",
+  "author": "Greg Dogum",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dogum/pocket-agent.git"
+  },
+  "homepage": "https://github.com/dogum/pocket-agent",
+  "bugs": {
+    "url": "https://github.com/dogum/pocket-agent/issues"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c \"yellow,cyan\" \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "dev:api": "tsx watch src/index.ts",
+    "dev:web": "vite",
+    "build": "pnpm run build:web",
+    "build:web": "vite build",
+    "start": "tsx src/index.ts",
+    "bootstrap-agent": "tsx src/bootstrap-agent.ts",
+    "type-check": "tsc -b",
+    "type-check:server": "tsc -p tsconfig.server.json --noEmit",
+    "type-check:web": "tsc -p tsconfig.web.json --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@hono/node-server": "^1.13.7",
+    "@types/node-cron": "^3.0.11",
+    "better-sqlite3": "^12.9.0",
+    "dompurify": "^3.4.2",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.16",
+    "marked": "^18.0.3",
+    "node-cron": "^4.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

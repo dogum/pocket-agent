@@ -1,0 +1,66 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! The more concrete you can be about steps to reproduce and what you expected, the faster this gets fixed.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect? What did you actually see? Screenshots help, especially for UI bugs.
+      placeholder: |
+        I sent a text ingest in my Marathon session. The agent emitted a checklist instead of a question_set, and the boxes didn't do anything when I clicked them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Pocket Agent
+        2. Create a session named "X"
+        3. Send the text "Y"
+        4. Wait for the agent's artifact
+        5. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifact-json
+    attributes:
+      label: Artifact JSON (if relevant)
+      description: |
+        If the bug is about an artifact the agent emitted, paste the raw JSON.
+        Get it via the Privacy → Export all data button, or
+        `sqlite3 data/app.db "SELECT components FROM artifacts WHERE id = '...';"`.
+      render: json
+
+  - type: input
+    id: version
+    attributes:
+      label: Pocket Agent version
+      placeholder: "0.1.0"
+      description: From `package.json`.
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "macOS 14.5, Node 22.10, pnpm 10.0, Chrome 131"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server logs (if relevant)
+      description: Output from `pnpm dev` around the time of the bug. Redact your API key.
+      render: shell
