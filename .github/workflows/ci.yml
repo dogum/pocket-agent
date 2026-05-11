@@ -1,5 +1,6 @@
-# Type-check + production-build on every push and PR. This is the only
-# CI gate today — when a real test suite lands, add a `test` job here.
+# Type-check + production-build on every push and PR, across the
+# Node LTS spread we support. This is the only CI gate today — when a
+# real test suite lands, add a `test` job here.
 name: ci
 
 on:
@@ -13,11 +14,25 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege by default — every workflow inherits read-only.
+# Jobs opt back in to what they specifically need.
+permissions:
+  contents: read
+
 jobs:
   verify:
-    name: Type-check + build
+    name: Type-check + build (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cover the current LTS line + the bleeding-edge release.
+        # 20 = oldest supported per `engines`, 22 = active LTS,
+        # 24 = current release line.
+        node: ['20', '22', '24']
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,13 +42,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node }}
           cache: 'pnpm'
 
       - name: Install dependencies
-        # better-sqlite3 has a native build; we allow its build script via
-        # pnpm.onlyBuiltDependencies in package.json. esbuild is in the
-        # same allowlist for the same reason. No interactive prompt.
+        # better-sqlite3 has a native build; the build script is
+        # allowed via pnpm.onlyBuiltDependencies in package.json.
+        # esbuild is allowed for the same reason. No interactive
+        # prompt.
         run: pnpm install --frozen-lockfile
 
       - name: Type-check

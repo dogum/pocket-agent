@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- CI matrix across Node 20 / 22 / 24 on `pnpm type-check` and `pnpm build`.
+- Least-privilege `permissions: contents: read` on the CI workflow.
+- Dependabot config — weekly npm updates (grouped minor + patch), monthly GitHub Actions bumps.
+- CodeQL workflow (`security-extended` query set) on push, PR, and a weekly cron.
+
+### Changed
+
+- Repo flipped public; topics set; About populated.
+
 ## [0.1.0] — 2026-05-10
 
 The initial open-source release.

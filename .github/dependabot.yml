@@ -1,0 +1,43 @@
+# Dependabot configuration.
+#
+# Two ecosystems:
+#   • npm (pnpm-compatible) — weekly check, grouped to keep PR noise low.
+#   • GitHub Actions — pin our workflow steps to fresh versions monthly.
+#
+# Security updates are enabled separately (Dependabot opens those PRs
+# automatically regardless of schedule).
+
+version: 2
+
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+    groups:
+      # Bundle minor + patch bumps so we don't end up with five PRs
+      # for the same release wave.
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - 'minor'
+          - 'patch'
+    ignore:
+      # Pin Node typings to the Node version we test against —
+      # automated bumps here cause spurious churn.
+      - dependency-name: '@types/node'
+        update-types:
+          - 'version-update:semver-major'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependencies'
+      - 'ci'
