@@ -33,6 +33,7 @@ import type {
   ProgressComponent,
   QuestionSetComponent,
   QuoteComponent,
+  ReflexProposalComponent,
   SourcesComponent,
   SparklineComponent,
   StatusListComponent,
@@ -40,6 +41,7 @@ import type {
   ThemeColor,
   TimelineComponent,
 } from '@shared/index'
+import { describeCondition } from '@shared/index'
 import { Icon } from '../icons/Icon'
 
 const colorToVar = (c?: ThemeColor): string => {
@@ -679,6 +681,100 @@ function CKeyValueList({ items }: KeyValueListComponent): JSX.Element {
   )
 }
 
+// ─── 24. reflex_proposal ────────────────────────────────────────────
+function CReflexProposal({
+  proposal,
+  onApprove,
+  onDismiss,
+}: {
+  proposal: ReflexProposalComponent
+  onApprove?: (proposal: ReflexProposalComponent) => void
+  onDismiss?: () => void
+}): JSX.Element {
+  const [state, setState] = useState<'pending' | 'approving' | 'approved' | 'dismissed'>(
+    'pending',
+  )
+  const debounceMin = Math.round((proposal.debounce_seconds ?? 300) / 60)
+  const cadenceText = debounceMin >= 1 ? `at most once every ${debounceMin} min` : 'no debounce'
+
+  const approve = async (): Promise<void> => {
+    if (state !== 'pending' || !onApprove) return
+    setState('approving')
+    try {
+      await onApprove(proposal)
+      setState('approved')
+    } catch {
+      setState('pending')
+    }
+  }
+  const dismiss = (): void => {
+    if (state !== 'pending') return
+    setState('dismissed')
+    onDismiss?.()
+  }
+
+  return (
+    <div className={'c-reflex-proposal state-' + state}>
+      <div className="head">
+        <span className="tag">PROPOSED REFLEX</span>
+        <span className="cadence">{cadenceText}</span>
+      </div>
+      <div className="desc">{proposal.description}</div>
+      <div className="match">
+        <span className="src">{proposal.source_name}</span>
+        {proposal.conditions.length > 0 && (
+          <ul>
+            {proposal.conditions.map((c, i) => (
+              <li key={i}>{describeCondition(c)}</li>
+            ))}
+          </ul>
+        )}
+        {proposal.conditions.length === 0 && (
+          <span className="any">on every observation</span>
+        )}
+      </div>
+      <div className="kickoff">
+        <span className="k-label">Then run with</span>
+        <div className="k-prompt">"{proposal.kickoff_prompt}"</div>
+        {proposal.artifact_hint && (
+          <span className="hint">Suggested artifact: {proposal.artifact_hint}</span>
+        )}
+      </div>
+      <div className="proposal-actions">
+        {state === 'pending' && (
+          <>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={approve}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={dismiss}
+            >
+              Dismiss
+            </button>
+          </>
+        )}
+        {state === 'approving' && (
+          <span className="status">Wiring up…</span>
+        )}
+        {state === 'approved' && (
+          <span className="status approved">
+            <Icon name="check" /> Active — will fire when matched
+          </span>
+        )}
+        {state === 'dismissed' && (
+          <span className="status">Dismissed</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── 23. link_preview ───────────────────────────────────────────────
 function CLinkPreview({
   url,
@@ -715,12 +811,16 @@ export function ArtifactComponentView({
   component,
   onChecklistToggle,
   onQuestionSetSubmit,
+  onReflexApprove,
+  onReflexDismiss,
 }: {
   component: ArtifactComponent
   onChecklistToggle?: (id: string) => void
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onReflexApprove?: (proposal: ReflexProposalComponent) => void | Promise<void>
+  onReflexDismiss?: () => void
 }): JSX.Element | null {
   switch (component.type) {
     case 'data_row':
@@ -769,6 +869,14 @@ export function ArtifactComponentView({
       return <CKeyValueList {...component} />
     case 'link_preview':
       return <CLinkPreview {...component} />
+    case 'reflex_proposal':
+      return (
+        <CReflexProposal
+          proposal={component}
+          onApprove={onReflexApprove}
+          onDismiss={onReflexDismiss}
+        />
+      )
     default:
       return null
   }
@@ -786,18 +894,27 @@ export function ArtifactCard({
 }): JSX.Element {
   const accent = artifact.header.label_color
   const accentClass = accent && accent !== 'signal' && accent !== 'muted' ? ' ' + accent : ''
+  const isLive = !!(artifact.subscribes_to && artifact.subscribes_to.length > 0)
+  const versionCount = artifact.version ?? 0
   return (
     <div
       className={
         'artifact' +
         (accent ? ' has-accent' + accentClass : '') +
-        (onTap ? ' tap' : '')
+        (onTap ? ' tap' : '') +
+        (isLive ? ' is-live' : '')
       }
       onClick={onTap}
     >
       <div className="artifact-header">
         <div className="topline">
           <span className={'label ' + (accent ?? '')}>{artifact.header.label}</span>
+          {isLive && (
+            <span className="live-badge" title="Subscribes to a source — updates in place">
+              <span className="dot" />
+              <span className="label">LIVE</span>
+            </span>
+          )}
           <span className="when">{artifact.header.timestamp_display}</span>
         </div>
         <h3>{artifact.header.title}</h3>
@@ -809,6 +926,13 @@ export function ArtifactCard({
         artifact.components.map((c, i) => (
           <ArtifactComponentView key={i} component={c} />
         ))}
+      {versionCount > 0 && (
+        <div className="artifact-foot">
+          <span className="versions">
+            Updated {versionCount}× since posting
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -818,18 +942,26 @@ export function ArtifactDetail({
   artifact,
   onAction,
   onQuestionSetSubmit,
+  onReflexApprove,
+  onShowHistory,
 }: {
   artifact: Artifact
   onAction?: (action: NonNullable<Artifact['actions']>[number]) => void
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onReflexApprove?: (
+    proposal: ReflexProposalComponent,
+  ) => void | Promise<void>
+  onShowHistory?: () => void
 }): JSX.Element {
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const toggle = (id: string): void =>
     setChecked((s) => ({ ...s, [id]: !s[id] }))
 
   const accent = artifact.header.label_color
+  const isLive = !!(artifact.subscribes_to && artifact.subscribes_to.length > 0)
+  const versionCount = artifact.version ?? 0
   return (
     <div style={{ padding: '0 var(--screen-pad)' }} className="rise">
       <div style={{ marginBottom: 18 }}>
@@ -838,9 +970,30 @@ export function ArtifactDetail({
           style={{
             marginBottom: 10,
             color: colorToVar(accent ?? 'signal'),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
           }}
         >
-          {artifact.header.label} · {artifact.header.timestamp_display}
+          <span>
+            {artifact.header.label} · {artifact.header.timestamp_display}
+          </span>
+          {isLive && (
+            <span className="live-badge">
+              <span className="dot" />
+              <span className="label">LIVE</span>
+            </span>
+          )}
+          {versionCount > 0 && (
+            <button
+              type="button"
+              className="versions-link"
+              onClick={onShowHistory}
+              disabled={!onShowHistory}
+            >
+              Updated {versionCount}×
+            </button>
+          )}
         </div>
         <h1
           className="t-headline"
@@ -857,6 +1010,7 @@ export function ArtifactDetail({
         {artifact.components.map((c, i) => (
           <ArtifactComponentView
             key={i}
+            onReflexApprove={onReflexApprove}
             component={
               c.type === 'checklist'
                 ? {

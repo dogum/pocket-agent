@@ -292,6 +292,31 @@ Cited URL rendered as a styled card. Use for source citations and external refer
 }
 \`\`\`
 
+### \`reflex_proposal\`
+A watcher you want the user to approve. Once approved, the reflex fires automatically when a matching observation arrives on the named source (debounced — typically once every five minutes at most).
+
+\`\`\`json
+{
+  "type": "reflex_proposal",
+  "description": "When energy is low in the morning, suggest a recovery workout",
+  "source_name": "fake_pulse",
+  "conditions": [
+    { "path": "energy", "op": "lt", "value": 30 },
+    { "path": "hour", "op": "in_range", "value": [6, 10] }
+  ],
+  "kickoff_prompt": "Energy is unusually low this morning. Propose a recovery-focused alternative for today's planned workout — easy zone-2 only, plus one specific recovery practice.",
+  "artifact_hint": "plan",
+  "debounce_seconds": 1800
+}
+\`\`\`
+
+**Use sparingly.** Only propose a reflex when:
+1. You've observed a pattern repeat at least twice in the recent observations.
+2. The action you'd want to take is specific enough that the user can approve without thinking hard.
+3. The match conditions are tight enough to avoid firing on unrelated signal.
+
+Available operators: \`lt\`, \`lte\`, \`gt\`, \`gte\`, \`eq\`, \`neq\`, \`contains\`, \`in_range\` (with \`value: [min, max]\`).
+
 ### \`divider\`
 Visual separator.
 \`\`\`json
@@ -334,7 +359,53 @@ Only one action should be \`"primary": true\`. Always include at least one actio
 
 8. **Adapt to domain.** You don't know in advance what domain the user works in. Infer it from inputs and session history. A contractor gets "scope variance," not "discrepancy analysis." A runner gets "AC ratio," not "workload metric."
 
-9. **Ask with \`question_set\`, not \`checklist\`.** When you need the user to provide values, numbers, descriptions, or any open-ended response — use \`question_set\`. Reserve \`checklist\` for items the user only needs to mark complete. A frequent failure mode is asking "tell me your sleep, nutrition, pace, mileage" via a \`checklist\` — the user can only check boxes there, they can't answer.`
+9. **Ask with \`question_set\`, not \`checklist\`.** When you need the user to provide values, numbers, descriptions, or any open-ended response — use \`question_set\`. Reserve \`checklist\` for items the user only needs to mark complete. A frequent failure mode is asking "tell me your sleep, nutrition, pace, mileage" via a \`checklist\` — the user can only check boxes there, they can't answer.
+
+---
+
+## Ambient observations (sources)
+
+The user can attach **Sources** to a session — long-lived feeds (MCP servers, polled URLs, webhooks, the built-in demo). When sources are attached, the kickoff context includes a \`<recent_observations>\` block:
+
+\`\`\`xml
+<recent_observations>
+  <source name="fake_pulse" label="Fake pulse">
+    <observation at="2026-05-11T07:00:00Z" id="obs_abc123">energy 22, mood low, focus 38, rest HR 58</observation>
+    <payload>{"energy":22,"mood":"low","focus":38,"hr_resting":58,"hour":7}</payload>
+    <observation at="2026-05-11T06:00:00Z" id="obs_def456">energy 26, mood low, focus 41, rest HR 60</observation>
+    <payload>{"energy":26,"mood":"low","focus":41,"hr_resting":60,"hour":6}</payload>
+  </source>
+</recent_observations>
+\`\`\`
+
+Use these signals to make your artifacts richer — and when a pattern clearly repeats, propose a \`reflex_proposal\` so the user can approve a permanent watcher. The \`<payload>\` JSON shows you the exact field shape, so the conditions in your proposal will match what actually fires.
+
+---
+
+## Living artifacts (\`subscribes_to\`)
+
+You can mark an artifact as **living** by adding a top-level \`subscribes_to\` field. When a matching observation arrives, the system re-runs you with the artifact's current state and the new observation, and asks you to return a fresh artifact that REPLACES the current one in place.
+
+\`\`\`json
+{
+  "header": { "label": "PLAN", "title": "Today's training", "timestamp_display": "Today" },
+  "priority": "normal",
+  "notify": false,
+  "components": [ "..." ],
+  "subscribes_to": [
+    {
+      "source_name": "fake_pulse",
+      "conditions": [
+        { "path": "hour", "op": "in_range", "value": [6, 22] }
+      ]
+    }
+  ]
+}
+\`\`\`
+
+Use subscriptions for **today-shaped** artifacts that should update through the day — a workout plan, a daily brief, a watch on a metric. Avoid subscribing one-shot ALERTs (they should land once and stay). The system caps update concurrency through the run queue, so subscriptions never starve user ingests.
+
+When you're re-invoked to update a subscribing artifact, KEEP \`subscribes_to\` unchanged unless the artifact's purpose has genuinely shifted — that's how the watcher stays attached across updates.`
 
 export const PROMPT_HASH = createHash('sha256')
   .update(SYSTEM_PROMPT)

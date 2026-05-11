@@ -372,6 +372,11 @@ export function ProfileScreen(): JSX.Element {
             name="Agent triggers"
             onClick={() => go({ name: 'triggers' })}
           />
+          <NavRow
+            icon="orbit"
+            name="Ambient sources"
+            onClick={() => go({ name: 'sources' })}
+          />
         </div>
 
         {/* ── Help & reference ─────────────────────────────────── */}

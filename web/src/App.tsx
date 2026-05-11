@@ -2,6 +2,7 @@ import { useEffect, type JSX } from 'react'
 
 import { ConfirmDialog } from './components/shell/ConfirmDialog'
 import { BottomNav, Device, type NavTab } from './components/shell/Shell'
+import { useAmbientEvents } from './hooks/useAmbientEvents'
 import { api } from './lib/api'
 import { ArtifactDetailScreen } from './screens/ArtifactDetailScreen'
 import { FeedScreen } from './screens/FeedScreen'
@@ -14,6 +15,8 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { SearchScreen } from './screens/SearchScreen'
 import { SessionDetailScreen } from './screens/SessionDetailScreen'
 import { SessionsScreen } from './screens/SessionsScreen'
+import { SourceDetailScreen } from './screens/SourceDetailScreen'
+import { SourcesScreen } from './screens/SourcesScreen'
 import { TriggersScreen } from './screens/TriggersScreen'
 import { useAppStore } from './store/useAppStore'
 import { resolveTheme, useSettings } from './store/useSettings'
@@ -26,6 +29,8 @@ export function App(): JSX.Element {
   const setShowIngest = useAppStore((s) => s.setShowIngest)
   const setData = useAppStore((s) => s.setData)
   const loaded = useAppStore((s) => s.loaded)
+  const ambientRun = useAppStore((s) => s.ambientRun)
+  useAmbientEvents()
 
   const theme = useSettings((s) => s.theme)
   const accent = useSettings((s) => s.accent)
@@ -54,14 +59,21 @@ export function App(): JSX.Element {
     let cancelled = false
     void (async () => {
       try {
-        const [state, { sessions }, { artifacts }, { briefing }, profile] =
-          await Promise.all([
-            api.getState(),
-            api.listSessions(),
-            api.listArtifacts({ limit: 30 }),
-            api.latestBriefing().catch(() => ({ briefing: null })),
-            api.getProfile().catch(() => null),
-          ])
+        const [
+          state,
+          { sessions },
+          { artifacts },
+          { briefing },
+          profile,
+          { sources },
+        ] = await Promise.all([
+          api.getState(),
+          api.listSessions(),
+          api.listArtifacts({ limit: 30 }),
+          api.latestBriefing().catch(() => ({ briefing: null })),
+          api.getProfile().catch(() => null),
+          api.listSources().catch(() => ({ sources: [] })),
+        ])
         if (cancelled) return
         setData({
           sessions,
@@ -71,6 +83,7 @@ export function App(): JSX.Element {
           profile: profile
             ? { name: profile.name, stats: profile.stats }
             : null,
+          sources,
           loaded: true,
         })
         if (state.first_run && state.agent !== null) {
@@ -131,6 +144,10 @@ export function App(): JSX.Element {
         return <ComponentLibraryScreen />
       case 'agent-states':
         return <AgentStatesScreen />
+      case 'sources':
+        return <SourcesScreen />
+      case 'source':
+        return <SourceDetailScreen id={route.id} />
       default:
         return <FeedScreen />
     }
@@ -144,6 +161,12 @@ export function App(): JSX.Element {
   return (
     <Device time={currentTime()}>
       {screen}
+      {ambientRun && (
+        <div className="ambient-banner">
+          <span className="pulse" />
+          <span className="text">{ambientRun.description}</span>
+        </div>
+      )}
       {showNav && (
         <BottomNav
           current={tab}

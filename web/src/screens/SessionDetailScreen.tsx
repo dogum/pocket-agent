@@ -1,6 +1,6 @@
 import { useEffect, useState, type JSX } from 'react'
 
-import type { Artifact, Ingest } from '@shared/index'
+import type { Artifact, Ingest, Reflex, Source } from '@shared/index'
 import { ArtifactCard } from '../components/artifact/ArtifactRenderer'
 import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
@@ -14,6 +14,8 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
 
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [ingests, setIngests] = useState<Ingest[]>([])
+  const [attachedSources, setAttachedSources] = useState<Source[]>([])
+  const [reflexes, setReflexes] = useState<Reflex[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,11 +24,15 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
     Promise.all([
       api.listArtifacts({ session_id: id, limit: 50 }),
       api.listIngests(id),
+      api.sourcesForSession(id).catch(() => ({ sources: [] })),
+      api.listReflexes(id).catch(() => ({ reflexes: [] })),
     ])
-      .then(([a, i]) => {
+      .then(([a, i, src, rfl]) => {
         if (cancelled) return
         setArtifacts(a.artifacts)
         setIngests(i.ingests)
+        setAttachedSources(src.sources)
+        setReflexes(rfl.reflexes)
         setLoading(false)
       })
       .catch(() => {
@@ -117,6 +123,96 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
           </div>
           <Icon name="chevron-right" size={12} />
         </button>
+
+        {/* ── Sources strip ─────────────────────────────────────────── */}
+        <div style={{ marginTop: 14 }}>
+          <div
+            className="t-tag"
+            style={{
+              marginBottom: 8,
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>SOURCES</span>
+            <button
+              type="button"
+              className="versions-link"
+              onClick={() => go({ name: 'sources' })}
+            >
+              Manage
+            </button>
+          </div>
+          <div className="sources-strip">
+            {attachedSources.length === 0 && (
+              <span
+                className="t-body-sm"
+                style={{ color: 'var(--text-3)' }}
+              >
+                No sources attached. Attach one from the Sources screen so
+                the agent can pull on ambient threads between your turns.
+              </span>
+            )}
+            {attachedSources.map((src) => (
+              <button
+                key={src.id}
+                type="button"
+                className={'source-pill ' + src.status}
+                onClick={() => go({ name: 'source', id: src.id })}
+              >
+                <span className="dot" />
+                <span className="name">{src.name}</span>
+                {src.last_observation_at && (
+                  <span className="when">
+                    {relativeShort(src.last_observation_at)}
+                  </span>
+                )}
+              </button>
+            ))}
+            {attachedSources.length > 0 && (
+              <button
+                type="button"
+                className="source-pill add"
+                onClick={() => go({ name: 'sources' })}
+              >
+                <span className="name">+ attach</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Reflexes ─────────────────────────────────────────────── */}
+        {reflexes.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div
+              className="t-tag"
+              style={{
+                marginBottom: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>REFLEXES ({reflexes.filter((r) => r.approved).length} active)</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {reflexes.map((r) => (
+                <ReflexRow
+                  key={r.id}
+                  reflex={r}
+                  sessionId={id}
+                  onUpdate={(next) =>
+                    setReflexes((s) =>
+                      s.map((x) => (x.id === next.id ? next : x)),
+                    )
+                  }
+                  onDelete={() =>
+                    setReflexes((s) => s.filter((x) => x.id !== r.id))
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '0 var(--screen-pad)' }}>
@@ -338,4 +434,85 @@ function IngestRow({ ingest }: { ingest: Ingest }): JSX.Element {
       </div>
     </div>
   )
+}
+
+function ReflexRow({
+  reflex,
+  sessionId,
+  onUpdate,
+  onDelete,
+}: {
+  reflex: Reflex
+  sessionId: string
+  onUpdate: (next: Reflex) => void
+  onDelete: () => void
+}): JSX.Element {
+  const [busy, setBusy] = useState(false)
+  const togglePause = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      const next = await api.updateReflex(sessionId, reflex.id, {
+        enabled: !reflex.enabled,
+      })
+      onUpdate(next)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const remove = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      await api.deleteReflex(sessionId, reflex.id)
+      onDelete()
+    } catch {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className={'reflex-row' + (reflex.enabled ? '' : ' disabled')}>
+      <div className="top">
+        <span className="desc">{reflex.description}</span>
+        <span className="meta">
+          fired {reflex.fire_count}× ·{' '}
+          {reflex.approved ? 'approved' : 'unapproved'}
+        </span>
+      </div>
+      <div className="meta">
+        debounce ≥ {Math.round(reflex.debounce_seconds / 60)} min
+        {reflex.last_fired_at && (
+          <> · last {relativeShort(reflex.last_fired_at)}</>
+        )}
+      </div>
+      <div className="actions">
+        <button
+          type="button"
+          className="versions-link"
+          onClick={togglePause}
+          disabled={busy}
+        >
+          {reflex.enabled ? 'Pause' : 'Resume'}
+        </button>
+        <button
+          type="button"
+          className="versions-link"
+          onClick={remove}
+          disabled={busy}
+          style={{ color: 'var(--red)' }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function relativeShort(iso: string): string {
+  const ms = Date.now() - Date.parse(iso)
+  if (ms < 60_000) return 'now'
+  const min = Math.round(ms / 60_000)
+  if (min < 60) return `${min}m`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}h`
+  const day = Math.round(hr / 24)
+  return `${day}d`
 }

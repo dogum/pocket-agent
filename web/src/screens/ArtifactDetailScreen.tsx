@@ -1,6 +1,11 @@
 import { useEffect, useState, type JSX } from 'react'
 
-import type { Artifact, ArtifactAction } from '@shared/index'
+import type {
+  Artifact,
+  ArtifactAction,
+  ArtifactVersion,
+  ReflexProposalComponent,
+} from '@shared/index'
 import { ArtifactDetail } from '../components/artifact/ArtifactRenderer'
 import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
@@ -21,6 +26,14 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
   const [replyOpen, setReplyOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [versions, setVersions] = useState<ArtifactVersion[] | null>(null)
+
+  // Mirror server-side artifact.updated events when the same id is on screen.
+  useEffect(() => {
+    if (!cached) return
+    setArtifact(cached)
+  }, [cached])
 
   useEffect(() => {
     if (cached) return
@@ -121,6 +134,44 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
     }
   }
 
+  const handleReflexApprove = async (
+    proposal: ReflexProposalComponent,
+  ): Promise<void> => {
+    if (!artifact) return
+    try {
+      await api.createReflex(artifact.session_id, {
+        description: proposal.description,
+        source_name: proposal.source_name,
+        kickoff_prompt: proposal.kickoff_prompt,
+        artifact_hint: proposal.artifact_hint,
+        debounce_seconds: proposal.debounce_seconds ?? 300,
+        approved: true,
+        match: {
+          source_id: proposal.source_name,
+          conditions: proposal.conditions,
+        },
+      })
+      setActionFeedback('Reflex approved — it will fire on matching observations.')
+    } catch (e) {
+      setActionFeedback(
+        e instanceof Error ? e.message : 'Failed to approve reflex.',
+      )
+      throw e
+    }
+  }
+
+  const openHistory = async (): Promise<void> => {
+    if (!artifact) return
+    setHistoryOpen(true)
+    if (versions) return
+    try {
+      const { versions: v } = await api.listArtifactVersions(artifact.id)
+      setVersions(v)
+    } catch {
+      setVersions([])
+    }
+  }
+
   const handleQuestionSetSubmit = async (
     answers: Array<{ id: string; label: string; value: string }>,
   ): Promise<void> => {
@@ -186,6 +237,8 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
         artifact={artifact}
         onAction={handleAction}
         onQuestionSetSubmit={(a) => void handleQuestionSetSubmit(a)}
+        onReflexApprove={handleReflexApprove}
+        onShowHistory={() => void openHistory()}
       />
 
       {/* Universal Reply — works for any artifact, not just ones the
@@ -255,6 +308,63 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
       {replyOpen && (
         <ReplySheet artifact={artifact} onClose={() => setReplyOpen(false)} />
       )}
+      {historyOpen && (
+        <ArtifactHistorySheet
+          versions={versions}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   )
+}
+
+function ArtifactHistorySheet({
+  versions,
+  onClose,
+}: {
+  versions: ArtifactVersion[] | null
+  onClose: () => void
+}): JSX.Element {
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet">
+        <div className="handle" />
+        <div className="body" style={{ paddingBottom: 24 }}>
+          <div className="t-tag" style={{ marginBottom: 8 }}>
+            VERSION HISTORY
+          </div>
+          {!versions && (
+            <div className="shimmer" style={{ height: 60, borderRadius: 8 }} />
+          )}
+          {versions && versions.length === 0 && (
+            <p className="t-body-sm" style={{ color: 'var(--text-3)' }}>
+              No history yet.
+            </p>
+          )}
+          {versions && versions.length > 0 && (
+            <div>
+              {versions.map((v) => (
+                <div key={v.id} className="version-row">
+                  <div className="top">
+                    <span className="tag">v{v.version}</span>
+                    <span className="when">{shortDate(v.created_at)}</span>
+                  </div>
+                  <div className="t-body-sm" style={{ marginBottom: 4 }}>
+                    {v.header.title}
+                  </div>
+                  {v.reason && <div className="reason">{v.reason}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 }
