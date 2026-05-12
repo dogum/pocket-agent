@@ -32,6 +32,24 @@ import {
 import { newId } from '../lib/id.js'
 import { parseConditions } from '../orchestrator/parseArtifact.js'
 
+const MIN_DEBOUNCE_SECONDS = 1
+const MAX_DEBOUNCE_SECONDS = 86_400 // 1 day — past this just disable.
+const DEFAULT_DEBOUNCE_SECONDS = 300
+
+/** Clamp to a usable range. A non-finite / negative value would render
+ *  the debounce gate (`since < debounce_seconds * 1000`) either always
+ *  true (NaN) or always false (negative), flooding the run queue with
+ *  duplicate fires. */
+function clampDebounceSeconds(n: unknown): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) {
+    return DEFAULT_DEBOUNCE_SECONDS
+  }
+  return Math.max(
+    MIN_DEBOUNCE_SECONDS,
+    Math.min(MAX_DEBOUNCE_SECONDS, Math.floor(n)),
+  )
+}
+
 /** Validate + canonicalize a user-supplied match payload. Resolves a
  *  source slug to the canonical source_id and rejects malformed
  *  conditions before they can reach evaluateConditions on the hot
@@ -128,7 +146,10 @@ export function reflexesRoutes(db: DB): Hono {
       match,
       kickoff_prompt,
       artifact_hint: body.artifact_hint,
-      debounce_seconds: body.debounce_seconds ?? 300,
+      debounce_seconds:
+        body.debounce_seconds === undefined
+          ? DEFAULT_DEBOUNCE_SECONDS
+          : clampDebounceSeconds(body.debounce_seconds),
       fire_count: 0,
       approved: body.approved ?? false,
       enabled: true,
@@ -180,7 +201,10 @@ export function reflexesRoutes(db: DB): Hono {
         body.artifact_hint === undefined
           ? reflex.artifact_hint
           : body.artifact_hint || undefined,
-      debounce_seconds: body.debounce_seconds ?? reflex.debounce_seconds,
+      debounce_seconds:
+        body.debounce_seconds === undefined
+          ? reflex.debounce_seconds
+          : clampDebounceSeconds(body.debounce_seconds),
       approved:
         typeof body.approved === 'boolean' ? body.approved : reflex.approved,
       enabled:
