@@ -12,6 +12,13 @@ const KIND_LABEL: Record<SourceKind, string> = {
   polled_url: 'Polled URL',
 }
 
+/** Kinds the user can create via the UI. `demo` is reserved for the
+ *  built-in fake_pulse source (seeded server-side). `webhook` is
+ *  out — the ingress endpoint hasn't been wired yet, so a webhook
+ *  source would sit there unable to receive observations. Both will
+ *  re-appear here when their backends land. */
+const CREATABLE_KINDS: SourceKind[] = ['polled_url', 'mcp']
+
 const STATUS_LABEL: Record<Source['status'], string> = {
   connected: 'Connected',
   disconnected: 'Disconnected',
@@ -205,7 +212,6 @@ function AddSourceSheet({
   const [url, setUrl] = useState('')
   const [pollSeconds, setPollSeconds] = useState(60)
   const [mcpEndpoint, setMcpEndpoint] = useState('')
-  const [webhookPath, setWebhookPath] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -233,14 +239,11 @@ function AddSourceSheet({
         return
       }
       config = { kind: 'mcp', endpoint: mcpEndpoint.trim() }
-    } else if (kind === 'webhook') {
-      if (!webhookPath.trim()) {
-        setErr('path is required for a webhook source')
-        return
-      }
-      config = { kind: 'webhook', path: webhookPath.trim() }
     } else {
-      config = { kind: 'demo', cadence_seconds: 60 }
+      // Should never happen — CREATABLE_KINDS only exposes the two
+      // above. Guard for completeness so a stale UI can't slip through.
+      setErr(`source kind "${kind}" can't be created from this UI yet`)
+      return
     }
 
     setBusy(true)
@@ -284,18 +287,16 @@ function AddSourceSheet({
         </p>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(['polled_url', 'mcp', 'webhook', 'demo'] as SourceKind[]).map(
-            (k) => (
-              <button
-                key={k}
-                type="button"
-                className={'chip' + (kind === k ? ' on' : '')}
-                onClick={() => setKind(k)}
-              >
-                {KIND_LABEL[k]}
-              </button>
-            ),
-          )}
+          {CREATABLE_KINDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={'chip' + (kind === k ? ' on' : '')}
+              onClick={() => setKind(k)}
+            >
+              {KIND_LABEL[k]}
+            </button>
+          ))}
         </div>
 
         <label className="form-field">
@@ -369,18 +370,6 @@ function AddSourceSheet({
               MCP transport ships as a skeleton in this build; the source
               will sit in "configuring" until wired.
             </p>
-          </label>
-        )}
-
-        {kind === 'webhook' && (
-          <label className="form-field">
-            <span>Webhook path (relative)</span>
-            <input
-              type="text"
-              value={webhookPath}
-              placeholder="e.g. strava"
-              onChange={(e) => setWebhookPath(e.target.value)}
-            />
           </label>
         )}
 

@@ -27,6 +27,7 @@ import type {
   Source,
 } from '../../shared/index.js'
 import {
+  rowToArtifact,
   rowToSession,
   updateArtifactInPlace,
 } from '../db.js'
@@ -49,6 +50,11 @@ export async function updateArtifactFromObservation(
 ): Promise<void> {
   const { db, client, getAgent, artifact, source, observation } = input
 
+  // NOTE: `artifact` here is the snapshot at enqueue time. The QUEUED
+  // run callback below re-reads the row before building the prompt, so
+  // back-to-back observations don't run against stale components and
+  // overwrite each other's updates. We only use this snapshot for the
+  // (stable) session_id and the queue description.
   const description = `Update artifact: ${artifact.header.title}`
   await enqueueRun({
     sessionId: artifact.session_id,
@@ -61,16 +67,30 @@ export async function updateArtifactFromObservation(
         return
       }
 
+      // Re-read the artifact NOW that we hold the per-session lock.
+      // A prior queued run may have just updated it; the prompt and
+      // the subscribes_to fallback both need the current state.
+      const artifactRow = db
+        .prepare('SELECT * FROM artifacts WHERE id = ?')
+        .get(artifact.id) as Parameters<typeof rowToArtifact>[0] | undefined
+      if (!artifactRow) {
+        log.warn(
+          `living-artifact · artifact ${artifact.id} vanished before update`,
+        )
+        return
+      }
+      const current = rowToArtifact(artifactRow)
+
       const sessionRow = db
         .prepare('SELECT * FROM sessions WHERE id = ?')
-        .get(artifact.session_id) as
+        .get(current.session_id) as
         | Parameters<typeof rowToSession>[0]
         | undefined
       if (!sessionRow) return
       const session = rowToSession(sessionRow)
 
       const promptText = buildUpdatePrompt({
-        artifact,
+        artifact: current,
         source,
         observation,
       })
@@ -82,7 +102,7 @@ export async function updateArtifactFromObservation(
         localSessionId: session.id,
         promptText,
         fileIds: [],
-        title: `[update] ${artifact.header.title}`,
+        title: `[update] ${current.header.title}`,
         existingManagedSessionId: session.managed_session_id ?? undefined,
       })
 
@@ -115,11 +135,11 @@ export async function updateArtifactFromObservation(
         return
       }
 
-      // Re-use the existing artifact's subscribes_to unless the agent
+      // Re-use the CURRENT artifact's subscribes_to unless the agent
       // explicitly overrides — that keeps the watcher attached after the
       // update. The agent CAN clear it by setting subscribes_to: [].
-      const newSubs = final.draft.subscribes_to ?? artifact.subscribes_to
-      const updated = updateArtifactInPlace(db, artifact.id, {
+      const newSubs = final.draft.subscribes_to ?? current.subscribes_to
+      const updated = updateArtifactInPlace(db, current.id, {
         header: final.draft.header,
         components: final.draft.components,
         actions: final.draft.actions,

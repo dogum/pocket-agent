@@ -26,6 +26,21 @@ import type {
   SourceConfig,
 } from '../../shared/index.js'
 import { DEFAULT_RING_BUFFER_SIZE } from '../../shared/index.js'
+
+const MIN_RING_BUFFER_SIZE = 1
+const MAX_RING_BUFFER_SIZE = 10_000
+
+/** Clamp ring_buffer_size to a usable range. A 0 (or negative) value
+ *  would make the trim query `LIMIT 0` and immediately drop every
+ *  inserted observation; an absurdly large value would let one source
+ *  monopolize the DB. */
+function clampRingBuffer(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_RING_BUFFER_SIZE
+  return Math.max(
+    MIN_RING_BUFFER_SIZE,
+    Math.min(MAX_RING_BUFFER_SIZE, Math.floor(n)),
+  )
+}
 import {
   attachSource,
   deleteSource,
@@ -89,7 +104,9 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
       status: 'configuring',
       config: body.config,
       enabled: Boolean(body.enabled),
-      ring_buffer_size: body.ring_buffer_size ?? DEFAULT_RING_BUFFER_SIZE,
+      ring_buffer_size: clampRingBuffer(
+        body.ring_buffer_size ?? DEFAULT_RING_BUFFER_SIZE,
+      ),
       created_at: now,
       updated_at: now,
     }
@@ -121,7 +138,10 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
       description: body.description ?? source.description,
       enabled: typeof body.enabled === 'boolean' ? body.enabled : source.enabled,
       config: body.config ?? source.config,
-      ring_buffer_size: body.ring_buffer_size ?? source.ring_buffer_size,
+      ring_buffer_size:
+        body.ring_buffer_size !== undefined
+          ? clampRingBuffer(body.ring_buffer_size)
+          : source.ring_buffer_size,
       updated_at: new Date().toISOString(),
     }
     updateSource(db, next)
