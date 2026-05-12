@@ -103,9 +103,15 @@ export function SourceDetailScreen({ id }: { id: string }): JSX.Element {
       return
     setBusy(true)
     try {
+      // Send the description explicitly (including ''), not `undefined`,
+      // so the server can distinguish "leave alone" from "clear it".
+      // The PATCH route uses `body.description ?? source.description`
+      // and JSON.stringify drops undefined keys — an empty trimmed
+      // string is what tells the server to actually remove the prior
+      // description.
       const updated = await api.updateSource(source.id, {
         label: label.trim() || source.label,
-        description: description.trim() || undefined,
+        description: description.trim(),
       })
       upsertSource(updated)
     } finally {

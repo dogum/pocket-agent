@@ -21,6 +21,15 @@ import { listArtifactVersions } from '../db.js'
 import type { Database as DB } from 'better-sqlite3'
 import { queueState } from '../lib/runQueue.js'
 import { subscribe, type AmbientEvent } from '../lib/eventBus.js'
+import * as log from '../lib/log.js'
+
+/** Max events we'll buffer for a single SSE client before we start
+ *  dropping oldest entries. A backgrounded tab plus a busy source
+ *  (e.g. fake_pulse every minute, polled sources, run events) could
+ *  otherwise grow the per-connection queue without bound and exhaust
+ *  the server's memory. 500 covers ~10 minutes of heavy ambient
+ *  activity at 50 events/min — generous, but bounded. */
+const MAX_BACKLOG = 500
 
 export function eventsRoutes(db: DB): Hono {
   const app = new Hono()
@@ -35,10 +44,27 @@ export function eventsRoutes(db: DB): Hono {
       })
 
       const queue: AmbientEvent[] = []
+      let dropped = 0
       let resolveNext: (() => void) | null = null
 
       const unsubscribe = subscribe((e) => {
         queue.push(e)
+        // Bounded backlog — drop oldest. A stalled client should never
+        // get to keep an unlimited replay history at the server's
+        // expense. The client recovers by hitting the next live event
+        // plus refreshing on-screen views when it focuses again.
+        if (queue.length > MAX_BACKLOG) {
+          // Drop in a single splice instead of repeated shifts to keep
+          // amortized cost low under sustained pressure.
+          const drop = queue.length - MAX_BACKLOG
+          queue.splice(0, drop)
+          dropped += drop
+          if (dropped === drop || dropped % 100 === 0) {
+            log.warn(
+              `events · slow SSE consumer; dropped ${dropped} backlogged events`,
+            )
+          }
+        }
         if (resolveNext) {
           const r = resolveNext
           resolveNext = null
