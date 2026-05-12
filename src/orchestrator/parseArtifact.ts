@@ -302,8 +302,11 @@ function validateDraft(input: unknown): ParseResult {
   }
 }
 
-/** Parse a JSON array of conditions into the typed ReflexCondition[]. */
-function parseConditions(
+/** Parse a JSON array of conditions into the typed ReflexCondition[].
+ *  Exported so route handlers (POST/PATCH on reflexes) can run the same
+ *  validation before persistence — otherwise malformed conditions could
+ *  reach evaluateConditions on the hot fan-out path and crash a poller. */
+export function parseConditions(
   conds: unknown[],
   context: string,
 ):

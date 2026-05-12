@@ -215,13 +215,22 @@ export function priorityBanner(priority: RunPriority): string {
 // ─── Evaluator (pure — also runs in the browser for preview UI) ─────
 
 /** Evaluate a list of ReflexConditions against an observation's payload.
- *  AND semantics across conditions. Returns true iff all match. */
+ *  AND semantics across conditions. Returns true iff all match.
+ *
+ *  Defensive: a non-array `conditions` (legacy/corrupt data, or a
+ *  caller that bypassed validation) is treated as "no conditions" —
+ *  matches everything — rather than throwing. We also skip any item
+ *  that isn't a recognisable ReflexCondition shape. Route handlers
+ *  still validate at write time; this is just so a poll/observation
+ *  loop can't crash from a single bad row. */
 export function evaluateConditions(
   conditions: ReflexCondition[],
   payload: Record<string, unknown>,
 ): boolean {
-  if (!conditions || conditions.length === 0) return true
+  if (!Array.isArray(conditions) || conditions.length === 0) return true
   for (const c of conditions) {
+    if (!c || typeof c !== 'object') continue
+    if (typeof c.path !== 'string' || typeof c.op !== 'string') continue
     if (!evaluateOne(c, payload)) return false
   }
   return true

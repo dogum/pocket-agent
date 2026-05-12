@@ -30,6 +30,40 @@ import {
   updateReflex,
 } from '../db.js'
 import { newId } from '../lib/id.js'
+import { parseConditions } from '../orchestrator/parseArtifact.js'
+
+/** Validate + canonicalize a user-supplied match payload. Resolves a
+ *  source slug to the canonical source_id and rejects malformed
+ *  conditions before they can reach evaluateConditions on the hot
+ *  observation-fan-out path. */
+function validateMatch(
+  db: DB,
+  raw: unknown,
+):
+  | { ok: true; match: ReflexMatch }
+  | { ok: false; error: string } {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, error: 'match must be an object' }
+  }
+  const m = raw as Record<string, unknown>
+  if (typeof m.source_id !== 'string' || !m.source_id.trim()) {
+    return { ok: false, error: 'match.source_id is required' }
+  }
+  const source = getSource(db, m.source_id) ?? getSourceByName(db, m.source_id)
+  if (!source) {
+    return { ok: false, error: `source "${m.source_id}" not found` }
+  }
+  const condsRaw = m.conditions ?? []
+  if (!Array.isArray(condsRaw)) {
+    return { ok: false, error: 'match.conditions must be an array' }
+  }
+  const parsed = parseConditions(condsRaw, 'match')
+  if (!parsed.ok) return parsed
+  return {
+    ok: true,
+    match: { source_id: source.id, conditions: parsed.conditions },
+  }
+}
 
 export function reflexesRoutes(db: DB): Hono {
   const app = new Hono()
@@ -59,32 +93,21 @@ export function reflexesRoutes(db: DB): Hono {
       )
     }
 
-    let match = body.match
-    if (!match && body.source_name) {
-      const source = getSourceByName(db, body.source_name)
-      if (!source) {
-        return c.json(
-          { error: `source "${body.source_name}" not found` },
-          404,
-        )
-      }
-      match = { source_id: source.id, conditions: [] }
+    // Accept either an explicit `match` object or a bare `source_name`
+    // (which reflex_proposal cards emit on Approve). Normalize either
+    // into a match before validating.
+    let rawMatch: unknown = body.match
+    if (!rawMatch && body.source_name) {
+      rawMatch = { source_id: body.source_name, conditions: [] }
     }
-    if (!match) {
+    if (!rawMatch) {
       return c.json({ error: 'match or source_name is required' }, 400)
     }
-    // Allow match.source_id to be a source name as well — resolve.
-    const sourceRef = match.source_id
-    if (!sourceRef || !getSource(db, sourceRef)) {
-      const bySlug = sourceRef ? getSourceByName(db, sourceRef) : null
-      if (!bySlug) {
-        return c.json(
-          { error: `match.source_id "${sourceRef ?? ''}" not found` },
-          404,
-        )
-      }
-      match = { source_id: bySlug.id, conditions: match.conditions ?? [] }
+    const matchResult = validateMatch(db, rawMatch)
+    if (!matchResult.ok) {
+      return c.json({ error: matchResult.error }, 400)
     }
+    const match = matchResult.match
 
     const now = new Date().toISOString()
     const description = body.description
@@ -118,17 +141,31 @@ export function reflexesRoutes(db: DB): Hono {
     }
     const body = (await c.req.json().catch(() => ({}))) as Partial<{
       description: string
-      match: ReflexMatch
+      match: unknown
       kickoff_prompt: string
       artifact_hint: string
       debounce_seconds: number
       approved: boolean
       enabled: boolean
     }>
+
+    // If the caller is changing the match, validate + canonicalize it
+    // first. A malformed payload (non-array conditions, bad source ref,
+    // unknown op) would otherwise reach evaluateConditions on the
+    // observation hot path and could crash an interval-driven producer.
+    let nextMatch = reflex.match
+    if (body.match !== undefined) {
+      const result = validateMatch(db, body.match)
+      if (!result.ok) {
+        return c.json({ error: result.error }, 400)
+      }
+      nextMatch = result.match
+    }
+
     const next: Reflex = {
       ...reflex,
       description: body.description ?? reflex.description,
-      match: body.match ?? reflex.match,
+      match: nextMatch,
       kickoff_prompt: body.kickoff_prompt ?? reflex.kickoff_prompt,
       artifact_hint:
         body.artifact_hint === undefined
