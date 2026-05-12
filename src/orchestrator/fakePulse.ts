@@ -80,7 +80,14 @@ export function reconcileFakePulse(deps: FakePulseDeps): void {
     markStatus(deps.db, source, 'paused')
     return
   }
-  const ms = Math.max(15, config.cadence_seconds ?? DEFAULT_CADENCE_SECONDS) * 1000
+  // Same NaN guard as polled_url: a malformed cadence_seconds would
+  // collapse setInterval into a tight loop.
+  const rawCadence =
+    typeof config.cadence_seconds === 'number' &&
+    Number.isFinite(config.cadence_seconds)
+      ? config.cadence_seconds
+      : DEFAULT_CADENCE_SECONDS
+  const ms = Math.max(15, Math.floor(rawCadence)) * 1000
   markStatus(deps.db, source, 'connected')
   log.detail('fake-pulse', `ticking every ${ms / 1000}s`)
   timer = setInterval(() => tick(), ms)

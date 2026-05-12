@@ -120,18 +120,37 @@ export function runRoutes(config: Config, db: DB): Hono {
         priority: 'user',
         description: `User ingest: ${ingest.type}`,
         run: async () => {
-          const prompt = buildPrompt({ session, ingest, db })
+          // Re-read the session NOW that we hold the per-session lock.
+          // A prior run on this session may have just updated
+          // managed_session_id; using the enqueue-time snapshot would
+          // fork a fresh managed session and drop continuity.
+          const freshRow = db
+            .prepare('SELECT * FROM sessions WHERE id = ?')
+            .get(session.id) as
+            | Parameters<typeof rowToSession>[0]
+            | undefined
+          if (!freshRow) {
+            await send({
+              type: 'run.error',
+              kind: 'not_found',
+              message: 'session disappeared between enqueue and run',
+            })
+            return
+          }
+          const fresh = rowToSession(freshRow)
+
+          const prompt = buildPrompt({ session: fresh, ingest, db })
 
           const generator = streamSession({
             client,
             agentId: agentState.agent_id,
             environmentId: agentState.environment_id,
-            localSessionId: session.id,
+            localSessionId: fresh.id,
             ingestId: ingest.id,
             promptText: prompt.text,
             fileIds: prompt.fileIds,
-            title: session.name,
-            existingManagedSessionId: session.managed_session_id ?? undefined,
+            title: fresh.name,
+            existingManagedSessionId: fresh.managed_session_id ?? undefined,
           })
 
           let finalResult: StreamSessionResult

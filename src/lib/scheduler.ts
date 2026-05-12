@@ -198,18 +198,31 @@ async function fireTrigger(sessionId: string, triggerId: string): Promise<void> 
     priority: 'trigger',
     description: `Trigger: ${trigger.description || trigger.schedule}`,
     run: async () => {
-      const prompt = buildPrompt({ session, ingest, db })
+      // Re-read the session NOW. The cron-fire snapshot is from when
+      // we entered fireTrigger, but the queue may have made us wait
+      // behind another run that updated managed_session_id. Using the
+      // stale value would fork the agent into a new managed session
+      // and drop the thread.
+      const freshRow = db
+        .prepare('SELECT * FROM sessions WHERE id = ?')
+        .get(session.id) as
+        | Parameters<typeof rowToSession>[0]
+        | undefined
+      if (!freshRow) return
+      const fresh = rowToSession(freshRow)
+
+      const prompt = buildPrompt({ session: fresh, ingest, db })
 
       const generator = streamSession({
         client,
         agentId: agent.agent_id,
         environmentId: agent.environment_id,
-        localSessionId: session.id,
+        localSessionId: fresh.id,
         ingestId: ingest.id,
         promptText: prompt.text,
         fileIds: prompt.fileIds,
-        title: `[trigger] ${trigger.description || session.name}`,
-        existingManagedSessionId: session.managed_session_id ?? undefined,
+        title: `[trigger] ${trigger.description || fresh.name}`,
+        existingManagedSessionId: fresh.managed_session_id ?? undefined,
       })
 
       let agentText = ''
@@ -273,12 +286,12 @@ async function fireTrigger(sessionId: string, triggerId: string): Promise<void> 
         )
       }
 
-      // Re-read the session, mutate the trigger, write back.
-      const fresh = db
+      // Re-read the session row (post-run), mutate the trigger, write back.
+      const postRow = db
         .prepare('SELECT * FROM sessions WHERE id = ?')
         .get(session.id) as Parameters<typeof rowToSession>[0] | undefined
-      if (fresh) {
-        const cfg = JSON.parse(fresh.config) as SessionConfig
+      if (postRow) {
+        const cfg = JSON.parse(postRow.config) as SessionConfig
         if (cfg.triggers) {
           cfg.triggers = cfg.triggers.map((t) =>
             t.id === trigger.id

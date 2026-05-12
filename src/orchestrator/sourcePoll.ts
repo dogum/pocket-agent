@@ -60,7 +60,14 @@ export function reconcilePollers(): void {
 
   for (const source of polled) {
     const cfg = source.config as SourcePolledUrlConfig
-    const cadence = Math.max(30, cfg.poll_seconds)
+    // Guard against missing / non-numeric / NaN values in stored
+    // config — a NaN here would coerce setInterval's delay to a
+    // near-immediate tight loop.
+    const rawCadence =
+      typeof cfg.poll_seconds === 'number' && Number.isFinite(cfg.poll_seconds)
+        ? cfg.poll_seconds
+        : 60
+    const cadence = Math.max(30, Math.floor(rawCadence))
     const existing = pollers.get(source.id)
     if (existing && existing.cadence_seconds === cadence) continue
 
