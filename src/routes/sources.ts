@@ -27,6 +27,13 @@ import type {
 } from '../../shared/index.js'
 import { DEFAULT_RING_BUFFER_SIZE } from '../../shared/index.js'
 
+const VALID_KINDS = new Set<Source['kind']>([
+  'polled_url',
+  'mcp',
+  'webhook',
+  'demo',
+])
+
 const MIN_RING_BUFFER_SIZE = 1
 const MAX_RING_BUFFER_SIZE = 10_000
 
@@ -140,6 +147,14 @@ function validateConfig(
         config: { kind: 'demo', cadence_seconds: Math.max(15, cad) },
       }
     }
+    default:
+      // Defense in depth — TS narrows `kind` to Source['kind'], but a
+      // caller bypassing the route's allowlist would hit this branch
+      // and we want a typed result, not `undefined`.
+      return {
+        ok: false,
+        error: `unsupported source kind "${String(kind)}"`,
+      }
   }
 }
 import {
@@ -191,6 +206,12 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
     }> | null
     if (!body?.name || !body.kind || !body.config || !body.label) {
       return c.json({ error: 'name, label, kind, and config are required' }, 400)
+    }
+    if (!VALID_KINDS.has(body.kind)) {
+      return c.json(
+        { error: `kind "${String(body.kind)}" is not one of ${[...VALID_KINDS].join(', ')}` },
+        400,
+      )
     }
     if (getSourceByName(db, body.name)) {
       return c.json({ error: 'source name already exists' }, 409)
