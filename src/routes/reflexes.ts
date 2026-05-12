@@ -108,9 +108,14 @@ export function reflexesRoutes(db: DB): Hono {
   })
 
   app.patch('/:id', async (c) => {
+    const sessionId = c.req.param('sessionId') as string
     const id = c.req.param('id')
     const reflex = getReflex(db, id)
-    if (!reflex) return c.json({ error: 'not_found' }, 404)
+    // Treat cross-session lookups as not_found so a leaked id from
+    // another session can't mutate this session's automation state.
+    if (!reflex || reflex.session_id !== sessionId) {
+      return c.json({ error: 'not_found' }, 404)
+    }
     const body = (await c.req.json().catch(() => ({}))) as Partial<{
       description: string
       match: ReflexMatch
@@ -141,8 +146,12 @@ export function reflexesRoutes(db: DB): Hono {
   })
 
   app.delete('/:id', (c) => {
+    const sessionId = c.req.param('sessionId') as string
     const id = c.req.param('id')
-    if (!getReflex(db, id)) return c.json({ error: 'not_found' }, 404)
+    const reflex = getReflex(db, id)
+    if (!reflex || reflex.session_id !== sessionId) {
+      return c.json({ error: 'not_found' }, 404)
+    }
     deleteReflex(db, id)
     return c.json({ ok: true })
   })

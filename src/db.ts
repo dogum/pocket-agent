@@ -1055,8 +1055,15 @@ export function setArtifactSubscriptions(
     .run(JSON.stringify(subs), artifactId)
 }
 
-/** Replace the artifact's body in place and append a version row
- *  capturing the prior state. Returns the new version number. */
+/** Replace the artifact's body in place and append a version row for
+ *  the new state. Returns the new version number.
+ *
+ *  History invariant: the prior state's row is ALREADY in
+ *  `artifact_versions` — either v=0 seeded by `persistArtifact`, or
+ *  v=N seeded by an earlier `updateArtifactInPlace` call. So this
+ *  function only writes ONE row: the new (current) state at
+ *  `nextVersion`. Don't re-snapshot the prior state here — that would
+ *  collide with the row already at `(artifact_id, current.version)`. */
 export function updateArtifactInPlace(
   database: DB,
   artifactId: string,
@@ -1077,25 +1084,6 @@ export function updateArtifactInPlace(
   const nextVersion = (current.version ?? 0) + 1
 
   const tx = database.transaction(() => {
-    // Snapshot the prior state.
-    database
-      .prepare(`
-        INSERT INTO artifact_versions (
-          id, artifact_id, version, header, components,
-          triggering_observation_id, reason, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        `av_${nextVersion}_${artifactId}`,
-        artifactId,
-        current.version ?? 0,
-        current.header,
-        current.components,
-        null,
-        null,
-        current.last_updated_at ?? current.created_at,
-      )
-
     // Write the new body.
     database
       .prepare(`
@@ -1117,8 +1105,9 @@ export function updateArtifactInPlace(
         artifactId,
       )
 
-    // Drop a pointer row for the NEW state too, so the history sheet
-    // can show "current" with the same triggering observation context.
+    // Append the new state to the version history, tagged with the
+    // triggering observation + reason so the history sheet can describe
+    // each transition.
     database
       .prepare(`
         INSERT INTO artifact_versions (
@@ -1127,7 +1116,7 @@ export function updateArtifactInPlace(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
-        `av_${nextVersion}_curr_${artifactId}`,
+        `av_${nextVersion}_${artifactId}`,
         artifactId,
         nextVersion,
         JSON.stringify(next.header),
