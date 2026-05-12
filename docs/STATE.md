@@ -12,9 +12,9 @@
 
 **Latest release:** [v0.1.0](../CHANGELOG.md#010----2026-05-10) — the substrate is shipped.
 
-**In flight:** Phase 21 — Sources, Reflexes, and Living Artifacts. The substrate so far has been a great *reactive* turn-taker; Phase 21 makes it *ambient*. The agent gets an observation surface (external feeds → per-source ring buffers), a way to author its own watchers (reflexes the user approves), and artifacts that can update themselves in place when subscribed observations arrive. See the phase plan in PR notes for the design.
+**On `main` past v0.1.0:** Phase 21 — Sources, Reflexes, and Living Artifacts. The substrate evolved from a *reactive* turn-taker into an *ambient* agent. Sources (polled URLs, MCP, webhooks-as-schema, plus a built-in `fake_pulse` demo) emit Observations into per-source ring buffers; attached sources feed the agent's kickoff via `<recent_observations>`. The agent can propose **Reflexes** the user approves inline — once approved they fire automatically on matching observations, debounced and event-driven. Artifacts can declare `subscribes_to` to become **living** — they re-render in place when matching observations arrive, with a `LIVE` badge and version history. A per-session run queue (user > trigger > reflex > artifact-update) keeps all four entry points cooperating on the same managed session. The detail lives in [CHANGELOG.md](../CHANGELOG.md#unreleased).
 
-**What `main` looks like today:** scaffold + 20 phases of substrate + Observatory design system + 23 artifact components + cron triggers + session continuity + universal reply + session lifecycle + OSS scaffolding (LICENSE, CI matrix, CodeQL, Dependabot). Onboarding plays a 5-step cinematic. The agent has memory across turns within a local session.
+**What `main` looks like today:** scaffold + 21 phases of substrate + Observatory design system + 24 artifact components + cron triggers + session continuity + universal reply + session lifecycle + ambient sources / reflexes / living artifacts + OSS scaffolding (LICENSE, CI matrix, CodeQL, Dependabot). Onboarding plays a 5-step cinematic. The agent has memory across turns within a local session.
 
 ---
 
@@ -74,7 +74,7 @@ pocket-agent/
 | 19 | Polish (profile name in prompts, image inline in timeline, triggers shortcut on session detail) |
 | 20 | **4 new component types** — `question_set`, `markdown`, `key_value_list`, `link_preview` |
 | OSS bootstrap | LICENSE, README, CONTRIBUTING, SECURITY, CHANGELOG, .github/ templates, CI matrix, Dependabot, CodeQL, social preview, app screenshot |
-| **21 (in flight)** | **Sources, Reflexes, Living Artifacts** — observation surface + agent-authored watchers + in-place artifact updates |
+| **21** | **Sources, Reflexes, Living Artifacts** — observation surface (polled_url + mcp skeleton + webhook schema + demo), agent-authored watchers (`reflex_proposal` → approve → fire), in-place artifact updates (`subscribes_to` + version history), per-session priority run queue, ambient SSE feed at `/api/events` |
 
 ---
 
@@ -82,6 +82,9 @@ pocket-agent/
 
 These are explicitly *out of scope* for the current release but live in the backlog:
 
+- **MCP transport wire-up** — Phase 21 added the Source primitive and an MCP source kind, but the actual `@modelcontextprotocol/sdk` integration is a skeleton. MCP sources sit in `configuring` with a clear `last_error` until wired. Drop-in replacement.
+- **Webhook ingress endpoint** — schema accepts `kind: 'webhook'` but there's no HTTP receiver / HMAC verification yet. The kind is hidden from the create UI until it works.
+- **Promote-to-skill** — when a reflex has fired enough times, propose saving it as a reusable template the user can attach to other sessions. Phase 21 stretch goal, deferred.
 - **Voice ingest** — the button is disabled with "Coming soon"
 - **Per-session memory store integration** — pattern is in `_pocket-agent-reference/`, not yet wired
 - **Multi-user / auth / hosted demo** — local-first by design today; the architecture is clean enough to graduate
@@ -95,14 +98,16 @@ These are explicitly *out of scope* for the current release but live in the back
 
 ## Suggested next moves
 
-Beyond Phase 21, the natural candidates are:
+Natural candidates after Phase 21:
 
-1. **Live draft preview during streaming** — when `artifact.ready` is queued and the agent is mid-stream, show a "draft" placeholder card in the feed with the live text. Closes the visible gap between "scan-bar working" and "card appears."
-2. **Briefing auto-generation** — when the feed is empty or stale (>24h since latest), trigger the agent to compose a single `Briefing` artifact (greeting + summary of recent context). Populates the slot at the top of the feed.
-3. **Search narrowing** — chips for type/session/date on the Search screen.
-4. **Voice ingest** — Whisper local or via Anthropic's audio path when it's beta. Closes the only obviously disabled affordance.
-5. **MCP per-session UI on top of Phase 21 Sources** — Phase 21 introduces the Source primitive; this would expose per-session MCP attachments through it.
-6. **Per-session memory store integration** — mirror the reference pattern; gives the agent durable cross-managed-session memory.
+1. **MCP transport wire-up** — add `@modelcontextprotocol/sdk` and finish [`src/orchestrator/mcpClient.ts`](../src/orchestrator/mcpClient.ts). Sources of `kind: 'mcp'` already persist; this unblocks them. The architecture is MCP-shaped; this is a focused dep + transport task.
+2. **Webhook receiver** — POST `/api/sources/webhook/:path` with HMAC verification → `ingestObservation`. Once wired, re-add `webhook` to `CREATABLE_KINDS` in the SourcesScreen.
+3. **Live draft preview during streaming** — when `artifact.ready` is queued and the agent is mid-stream, show a "draft" placeholder card in the feed with the live text. Closes the visible gap between "scan-bar working" and "card appears."
+4. **Briefing auto-generation** — when the feed is empty or stale (>24h since latest), trigger the agent to compose a single `Briefing` artifact. Populates the slot at the top of the feed.
+5. **Search narrowing** — chips for type/session/date on the Search screen.
+6. **Voice ingest** — Whisper local or via Anthropic's audio path when it's beta. Closes the only obviously disabled affordance.
+7. **Per-session memory store integration** — mirror the reference pattern; gives the agent durable cross-managed-session memory.
+8. **Promote-to-skill** — when a reflex has fired N+ times successfully, propose saving it as a reusable template the user can attach to other sessions.
 
 For each: branch off `main`, PR back, CI gates it. CI runs Node 20/22/24 + CodeQL. Dependabot watches the dep wall weekly.
 

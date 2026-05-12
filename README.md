@@ -19,7 +19,9 @@ This is the open-source companion to the concept. It runs entirely on your machi
 
 ## What it looks like
 
-The agent emits one **Artifact** per ingest — a JSON object composed from a vocabulary of 23 component types: data rows, sparklines, line charts, tables, alerts, timelines, progress, comparisons, quotes, checklists, sources, status lists, images, maps, key/value lists, link previews, sandboxed HTML embeds, paragraphs, headings, dividers, markdown, and **question sets** the user can fill in inline. The agent picks, arranges, and styles them around your context — a marathon training session looks like a training app, a home renovation looks like a job tracker, a research project looks like a workbench.
+The agent emits one **Artifact** per ingest — a JSON object composed from a vocabulary of 24 component types: data rows, sparklines, line charts, tables, alerts, timelines, progress, comparisons, quotes, checklists, sources, status lists, images, maps, key/value lists, link previews, sandboxed HTML embeds, paragraphs, headings, dividers, markdown, **question sets** the user can fill in inline, and **reflex proposals** the user can approve to install agent-authored watchers. The agent picks, arranges, and styles them around your context — a marathon training session looks like a training app, a home renovation looks like a job tracker, a research project looks like a workbench.
+
+Beyond user-driven turns, the agent can also act *ambiently*. Long-lived **Sources** (polled URLs, MCP servers, a built-in `fake_pulse` demo) emit observations between your inputs. Attach a source to a session and recent observations land in the agent's kickoff context. Approve a **reflex** and it fires automatically when its pattern matches. Mark an artifact as **living** with `subscribes_to` and it updates itself in place — with a pulsing LIVE badge and a version history sheet — as new observations arrive.
 
 The signature motion is the **scan-bar** — four agent states (ingesting, thinking, drafting, watching) that tell you what the agent is doing at any moment. The design system is called the **Observatory**: Cormorant serif, IBM Plex Mono data, signal teal `#5CB8B2` accent, near-black field, fonts and tokens defined as CSS variables.
 
@@ -118,8 +120,9 @@ The full schema lives in [`shared/artifact.ts`](shared/artifact.ts). The rendere
 ```
 pocket-agent/
 ├── shared/                       Type contract used by both web and server
-│   ├── artifact.ts                23 component types as a discriminated union
+│   ├── artifact.ts                24 component types as a discriminated union
 │   ├── session.ts                 Session, Ingest, Briefing, Trigger
+│   ├── source.ts                  Source, Observation, Reflex, ArtifactSubscription
 │   └── events.ts                  SSE event taxonomy
 ├── src/                          Hono API server
 │   ├── index.ts                   Entry — mounts /api/* routes, initializes scheduler
@@ -130,13 +133,23 @@ pocket-agent/
 │   ├── orchestrator/              Talks to Anthropic
 │   │   ├── streamSession.ts        Core run helper (stream-first + idle-break + session reuse)
 │   │   ├── parseArtifact.ts        Validate the agent's final JSON
-│   │   └── buildPrompt.ts          Assemble kickoff context
+│   │   ├── persistArtifact.ts      Write artifact + seed version history; resolve source slugs
+│   │   ├── buildPrompt.ts          Assemble kickoff context (incl. <recent_observations>)
+│   │   ├── observations.ts         Write path + fan-out to reflexes and living artifacts
+│   │   ├── reflexEval.ts           Fire one reflex through the run queue
+│   │   ├── agentUpdate.ts          Scoped in-place artifact update entry point
+│   │   ├── sourcePoll.ts           Polled-URL source backend
+│   │   ├── mcpClient.ts            MCP source backend (transport skeleton)
+│   │   └── fakePulse.ts            Built-in demo source
 │   ├── lib/
 │   │   ├── scheduler.ts            node-cron registry for per-session triggers
+│   │   ├── runQueue.ts             Per-session priority queue (user > trigger > reflex > update)
+│   │   ├── eventBus.ts             In-process pub/sub for ambient events
 │   │   ├── uploads.ts              Anthropic Files API helpers + local byte cache
 │   │   ├── id.ts                   Stable sortable ids
 │   │   └── log.ts                  Branded terminal logging
-│   └── routes/                    One file per resource
+│   └── routes/                    One file per resource (sessions, ingests, artifacts,
+│                                  run, files, sources, reflexes, events, …)
 └── web/                          React + Vite SPA
     ├── index.html
     └── src/

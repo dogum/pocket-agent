@@ -34,7 +34,7 @@ Discuss bigger changes in an issue before writing code. Small bugfixes can go st
 
 ### Adding a new artifact component
 
-This is the most common kind of extension. To add a component, change **seven** places in lockstep:
+This is the most common kind of extension. The component vocabulary has 24 entries today; to add the 25th, change **seven** places in lockstep:
 
 1. Add the interface in [`shared/artifact.ts`](shared/artifact.ts) and add it to the `ArtifactComponent` discriminated union.
 2. Add a renderer + `case` in [`web/src/components/artifact/ArtifactRenderer.tsx`](web/src/components/artifact/ArtifactRenderer.tsx).
@@ -56,6 +56,19 @@ After landing, run `pnpm bootstrap-agent` against your own Anthropic agent to pu
 ### Database migrations
 
 Migrations live inside `migrate()` in [`src/db.ts`](src/db.ts). They run transactionally via the `advance(version, fn)` helper — only bump `schema_version` if the inside ran cleanly. **Never edit a shipped migration**; always add a new `migration_NNN` and a new `advance(NNN, …)` line.
+
+### Adding a new source kind
+
+A **Source** is a long-lived feed that emits Observations into a per-source ring buffer. The four shipped kinds (`polled_url`, `mcp`, `webhook`, `demo`) all plug into the same pipeline. To add a new kind:
+
+1. Extend `SourceKind` and add a typed `Source<Kind>Config` interface in [`shared/source.ts`](shared/source.ts).
+2. Add a backend in [`src/orchestrator/`](src/orchestrator/) — a `reconcile<Kind>` function that brings live sources online + a per-source instance that calls `ingestObservation(deps, { source, payload, summary })` when a new observation arrives. Use `setSourceRuntimeStatus(db, id, {…})` for status writes — never write the whole row from a stale snapshot.
+3. Wire `init<Kind>` + `shutdown<Kind>` into [`src/index.ts`](src/index.ts) alongside the existing pollers and the fake-pulse interval.
+4. Validate the config in `validateConfig(kind, raw)` inside [`src/routes/sources.ts`](src/routes/sources.ts) — reject malformed bodies with a 400 before persistence.
+5. Add the kind to `VALID_KINDS`, and to `CREATABLE_KINDS` in [`web/src/screens/SourcesScreen.tsx`](web/src/screens/SourcesScreen.tsx) if it has a working backend.
+6. Add a labelled chip + form fields in the SourcesScreen create sheet so users can configure it.
+
+The `reflex_proposal` component and the `Artifact.subscribes_to` field are the *output* side of the same pipeline — once observations are flowing, the agent can propose reflexes against your new kind and the user can approve them with no further work.
 
 ## Code style
 
