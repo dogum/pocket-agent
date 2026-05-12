@@ -180,10 +180,11 @@ You were configured to fire on this pattern: "${fresh.description}"${fresh.artif
         ).run('failed', final.errorMessage ?? final.exitReason, ingestId)
       }
 
-      // Bump the reflex.
+      // Bump fire_count — last_fired_at was reserved at enqueue time
+      // by observations.ingestObservation so the debounce gate doesn't
+      // race against in-flight runs. We only count completed runs here.
       const next = {
         ...fresh,
-        last_fired_at: new Date().toISOString(),
         fire_count: fresh.fire_count + 1,
         updated_at: new Date().toISOString(),
       }

@@ -27,6 +27,7 @@ import {
   activeReflexesForSource,
   artifactsSubscribedToSource,
   recordObservation,
+  updateReflex,
 } from '../db.js'
 import { publish } from '../lib/eventBus.js'
 import * as log from '../lib/log.js'
@@ -69,22 +70,36 @@ export function ingestObservation(
   })
 
   // ── Reflex fan-out ────────────────────────────────────────────────
+  // Debounce check is done up-front AND the reservation is persisted
+  // before enqueueing, so a burst of observations during a single in-
+  // flight run can't queue duplicate fires. `last_fired_at` here means
+  // "when the system most recently decided to fire" — fire_count still
+  // only increments after a successful run completes.
   const reflexes = activeReflexesForSource(deps.db, input.source.id)
   const now = Date.now()
   for (const reflex of reflexes) {
-    // Debounce check.
     if (reflex.last_fired_at) {
       const since = now - Date.parse(reflex.last_fired_at)
       if (since < reflex.debounce_seconds * 1000) continue
     }
     if (!evaluateConditions(reflex.match.conditions, obs.payload)) continue
 
+    // Reserve the debounce slot synchronously before we hand off to
+    // the queue. The next observation in the same tick (or within
+    // debounce_seconds) will see this `last_fired_at` and skip.
+    const reserved = {
+      ...reflex,
+      last_fired_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    updateReflex(deps.db, reserved)
+
     // Schedule the fire — don't await, let the queue serialize.
     void fireReflex({
       db: deps.db,
       client: deps.client,
       getAgent: deps.getAgent,
-      reflex,
+      reflex: reserved,
       source: input.source,
       observation: obs,
     }).catch((err: unknown) => {
