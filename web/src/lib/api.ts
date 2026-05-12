@@ -4,11 +4,18 @@
 
 import type {
   Artifact,
+  ArtifactVersion,
   Briefing,
   FeedResponse,
   Ingest,
   IngestType,
+  Observation,
+  Reflex,
+  ReflexMatch,
   Session,
+  Source,
+  SourceConfig,
+  SourceKind,
   Trigger,
 } from '@shared/index'
 
@@ -173,6 +180,108 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ confirm: 'delete' }),
     }),
+
+  // ── Phase 21 — Sources / Observations ──────────────────────────────
+  listSources: () => request<{ sources: Source[] }>('/sources'),
+  getSource: (id: string) => request<Source>(`/sources/${id}`),
+  createSource: (input: {
+    name: string
+    label: string
+    description?: string
+    kind: SourceKind
+    config: SourceConfig
+    enabled?: boolean
+    ring_buffer_size?: number
+  }) =>
+    request<Source>('/sources', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateSource: (
+    id: string,
+    patch: Partial<{
+      label: string
+      description: string
+      enabled: boolean
+      config: SourceConfig
+      ring_buffer_size: number
+    }>,
+  ) =>
+    request<Source>(`/sources/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+  deleteSource: (id: string) =>
+    request<{ ok: true }>(`/sources/${id}`, { method: 'DELETE' }),
+  listObservations: (sourceId: string, limit = 50) =>
+    request<{ observations: Observation[] }>(
+      `/sources/${sourceId}/observations?limit=${limit}`,
+    ),
+  emitObservation: (
+    sourceId: string,
+    input: { payload: Record<string, unknown>; summary?: string },
+  ) =>
+    request<{ observation: Observation }>(
+      `/sources/${sourceId}/observations`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+  attachSource: (sessionId: string, sourceId: string) =>
+    request<{ ok: true }>(`/sources/${sourceId}/attach/${sessionId}`, {
+      method: 'POST',
+    }),
+  detachSource: (sessionId: string, sourceId: string) =>
+    request<{ ok: true }>(`/sources/${sourceId}/attach/${sessionId}`, {
+      method: 'DELETE',
+    }),
+  sourcesForSession: (sessionId: string) =>
+    request<{ sources: Source[] }>(`/sources/_for_session/${sessionId}`),
+
+  // ── Phase 21 — Reflexes ────────────────────────────────────────────
+  listReflexes: (sessionId: string) =>
+    request<{ reflexes: Reflex[] }>(`/sessions/${sessionId}/reflexes`),
+  createReflex: (
+    sessionId: string,
+    input: {
+      description: string
+      match?: ReflexMatch
+      source_name?: string
+      kickoff_prompt: string
+      artifact_hint?: string
+      debounce_seconds?: number
+      approved?: boolean
+    },
+  ) =>
+    request<Reflex>(`/sessions/${sessionId}/reflexes`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateReflex: (
+    sessionId: string,
+    reflexId: string,
+    patch: Partial<{
+      description: string
+      match: ReflexMatch
+      kickoff_prompt: string
+      artifact_hint: string
+      debounce_seconds: number
+      approved: boolean
+      enabled: boolean
+    }>,
+  ) =>
+    request<Reflex>(`/sessions/${sessionId}/reflexes/${reflexId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+  deleteReflex: (sessionId: string, reflexId: string) =>
+    request<{ ok: true }>(`/sessions/${sessionId}/reflexes/${reflexId}`, {
+      method: 'DELETE',
+    }),
+
+  // ── Phase 21 — Artifact versions (living artifacts) ────────────────
+  listArtifactVersions: (artifactId: string) =>
+    request<{ versions: ArtifactVersion[] }>(
+      `/events/artifacts/${artifactId}/versions`,
+    ),
 }
 
 export interface DataSummary {

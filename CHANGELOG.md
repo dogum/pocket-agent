@@ -6,16 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
+### Added — Phase 21: Sources, Reflexes, Living Artifacts (the ambient agent)
+
+The substrate evolves from a reactive turn-taker into an ambient agent.
+
+- **Sources** — first-class objects alongside Sessions. A Source is a long-lived connection to an external feed; supported kinds are `polled_url`, `mcp` (transport skeleton), `webhook` (schema-only), and the built-in `demo`. Sources emit `Observation`s into a per-source ring buffer (configurable cap, default 200). Attach a Source to a Session and recent observations land in the agent's kickoff via a `<recent_observations>` XML block. Full CRUD + per-session attach UI under **Profile → Ambient sources**.
+- **fake_pulse demo source** — seeded disabled on first boot. Toggling on emits a synthetic `{energy, mood, focus, hr_resting, hour}` payload every minute so reflexes and living artifacts can be tested end-to-end without wiring an external service.
+- **Reflexes** — agent-authored watchers. The agent can emit a new `reflex_proposal` component, which renders as a PROPOSED REFLEX card with Approve / Dismiss. Approved reflexes fire automatically when matching observations arrive, debounced and event-driven. Pause / Resume / Delete per reflex from the session detail.
+- **Living artifacts** — any artifact can declare `subscribes_to`. When a matching observation arrives, the system re-runs the agent in place; the card updates with a pulsing **LIVE** badge and an "Updated N×" link that opens a version history sheet. Prior versions are preserved in a new `artifact_versions` table.
+- **Per-session run queue** — user > trigger > reflex > artifact_update priority. All four entry points share the queue, so trigger fires, reflex fires, and in-place updates never collide with each other or with a user ingest on the same session.
+- **`/api/events` ambient SSE feed** — single long-lived stream the web client subscribes to once. Forwards observation / reflex / artifact-updated / queue-lifecycle events. Drives the **ambient banner** above the bottom nav ("Agent is on a reflex" / "Agent updating an artifact"). Per-connection backlog is bounded with a drop-oldest policy.
+- **`reflex_proposal` artifact component** — 24th component type. Renders inline approval. Conditions, debounce, source name, and a kickoff prompt preview shown before the user commits.
+- **Agent prompt v3** — teaches the agent the `reflex_proposal` component, the `<recent_observations>` block format, and `subscribes_to` on artifacts. Includes the "use sparingly" rule for reflexes.
+
+### Changed
+
+- Repo flipped public; topics set; About populated.
+
+### Infrastructure
 
 - CI matrix across Node 20 / 22 / 24 on `pnpm type-check` and `pnpm build`.
 - Least-privilege `permissions: contents: read` on the CI workflow.
 - Dependabot config — weekly npm updates (grouped minor + patch), monthly GitHub Actions bumps.
 - CodeQL workflow (`security-extended` query set) on push, PR, and a weekly cron.
-
-### Changed
-
-- Repo flipped public; topics set; About populated.
 
 ## [0.1.0] — 2026-05-10
 

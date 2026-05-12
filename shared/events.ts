@@ -19,9 +19,12 @@ export type RunEvent =
   | AgentToolResultEvent
   | AgentThinkingEvent
   | ArtifactReadyEvent
+  | ArtifactUpdatedEvent
   | RunStatusEvent
   | RunErrorEvent
   | RunDoneEvent
+  | ObservationReceivedEvent
+  | ReflexFiredEvent
 
 export interface RunStartedEvent {
   type: 'run.started'
@@ -61,6 +64,32 @@ export interface AgentThinkingEvent {
 export interface ArtifactReadyEvent {
   type: 'artifact.ready'
   artifact: Artifact
+}
+
+export interface ArtifactUpdatedEvent {
+  type: 'artifact.updated'
+  artifact: Artifact
+  /** The observation that triggered the in-place update, if any. */
+  triggering_observation_id?: string
+}
+
+/** Fired when a Source emits a new Observation. Used by the web client
+ *  to refresh a Sources strip without a poll. */
+export interface ObservationReceivedEvent {
+  type: 'observation.received'
+  source_id: string
+  observation_id: string
+  observed_at: string
+  /** The summary line that lands in <recent_observations>. */
+  summary: string
+}
+
+/** Fired when a reflex matches and the run queue accepts the job. */
+export interface ReflexFiredEvent {
+  type: 'reflex.fired'
+  reflex_id: string
+  session_id: string
+  triggering_observation_id: string
 }
 
 export interface RunStatusEvent {

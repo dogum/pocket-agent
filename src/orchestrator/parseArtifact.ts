@@ -14,7 +14,10 @@ import type {
   ArtifactComponent,
   ArtifactDraft,
   ArtifactAction,
+  ArtifactSubscription,
   Priority,
+  ReflexCondition,
+  ReflexOp,
   ThemeColor,
   Trend,
 } from '../../shared/index.js'
@@ -57,6 +60,18 @@ const VALID_COMPONENT_TYPES = new Set([
   'markdown',
   'key_value_list',
   'link_preview',
+  'reflex_proposal',
+])
+
+const VALID_REFLEX_OPS = new Set<ReflexOp>([
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+  'eq',
+  'neq',
+  'contains',
+  'in_range',
 ])
 const VALID_ACTION_TYPES = new Set([
   'confirm',
@@ -190,6 +205,50 @@ function validateDraft(input: unknown): ParseResult {
     components.push(normalizeComponent(c as Record<string, unknown>))
   }
 
+  // subscribes_to (optional) — for living artifacts
+  let subscribes_to: ArtifactSubscription[] | undefined
+  if (o.subscribes_to !== undefined) {
+    if (!Array.isArray(o.subscribes_to)) {
+      return { ok: false, error: 'subscribes_to, if present, must be an array' }
+    }
+    subscribes_to = []
+    for (let i = 0; i < o.subscribes_to.length; i++) {
+      const s = o.subscribes_to[i]
+      if (typeof s !== 'object' || s === null) {
+        return { ok: false, error: `subscribes_to[${i}] is not an object` }
+      }
+      const so = s as Record<string, unknown>
+      // The agent emits source_name (the slug); the persistence layer
+      // resolves it to source_id. We pass it through unchanged here.
+      const sourceRef =
+        typeof so.source_id === 'string'
+          ? so.source_id
+          : typeof so.source_name === 'string'
+            ? so.source_name
+            : null
+      if (!sourceRef) {
+        return {
+          ok: false,
+          error: `subscribes_to[${i}].source_id or .source_name is required`,
+        }
+      }
+      const conds = so.conditions
+      let conditions: ReflexCondition[] | undefined
+      if (conds !== undefined) {
+        if (!Array.isArray(conds)) {
+          return {
+            ok: false,
+            error: `subscribes_to[${i}].conditions, if present, must be an array`,
+          }
+        }
+        const parsedConds = parseConditions(conds, `subscribes_to[${i}]`)
+        if (!parsedConds.ok) return parsedConds
+        conditions = parsedConds.conditions
+      }
+      subscribes_to.push({ source_id: sourceRef, conditions })
+    }
+  }
+
   // Actions (optional)
   let actions: ArtifactAction[] | undefined
   if (o.actions !== undefined) {
@@ -238,8 +297,79 @@ function validateDraft(input: unknown): ParseResult {
       notify,
       components,
       actions,
+      subscribes_to,
     },
   }
+}
+
+/** Parse a JSON array of conditions into the typed ReflexCondition[].
+ *  Exported so route handlers (POST/PATCH on reflexes) can run the same
+ *  validation before persistence — otherwise malformed conditions could
+ *  reach evaluateConditions on the hot fan-out path and crash a poller. */
+export function parseConditions(
+  conds: unknown[],
+  context: string,
+):
+  | { ok: true; conditions: ReflexCondition[] }
+  | { ok: false; error: string } {
+  const out: ReflexCondition[] = []
+  for (let i = 0; i < conds.length; i++) {
+    const c = conds[i]
+    if (typeof c !== 'object' || c === null) {
+      return {
+        ok: false,
+        error: `${context}.conditions[${i}] is not an object`,
+      }
+    }
+    const co = c as Record<string, unknown>
+    if (typeof co.path !== 'string' || !co.path.trim()) {
+      return {
+        ok: false,
+        error: `${context}.conditions[${i}].path is missing or empty`,
+      }
+    }
+    if (typeof co.op !== 'string' || !VALID_REFLEX_OPS.has(co.op as ReflexOp)) {
+      return {
+        ok: false,
+        error: `${context}.conditions[${i}].op "${co.op}" is not a valid op`,
+      }
+    }
+    // `value` must be present; type-checked loosely against op.
+    if (co.value === undefined || co.value === null) {
+      return {
+        ok: false,
+        error: `${context}.conditions[${i}].value is required`,
+      }
+    }
+    if (co.op === 'in_range') {
+      if (
+        !Array.isArray(co.value) ||
+        co.value.length !== 2 ||
+        typeof co.value[0] !== 'number' ||
+        typeof co.value[1] !== 'number'
+      ) {
+        return {
+          ok: false,
+          error: `${context}.conditions[${i}].value must be [min, max] for in_range`,
+        }
+      }
+    } else if (
+      typeof co.value !== 'string' &&
+      typeof co.value !== 'number' &&
+      typeof co.value !== 'boolean'
+    ) {
+      return {
+        ok: false,
+        error: `${context}.conditions[${i}].value must be string | number | [min, max]`,
+      }
+    }
+    out.push({
+      path: co.path.trim(),
+      op: co.op as ReflexOp,
+      value: co.value as ReflexCondition['value'],
+    })
+  }
+  return { ok: true, conditions: out }
 }
 
 /**
@@ -259,6 +389,12 @@ function normalizeComponent(c: Record<string, unknown>): ArtifactComponent {
       }
       return ce
     })
+  }
+  // For reflex_proposal, coerce numeric strings in conditions and drop
+  // any condition we can't parse cleanly. The renderer is forgiving.
+  if (c.type === 'reflex_proposal' && Array.isArray(c.conditions)) {
+    const parsed = parseConditions(c.conditions, 'reflex_proposal')
+    c.conditions = parsed.ok ? parsed.conditions : []
   }
   return c as unknown as ArtifactComponent
 }

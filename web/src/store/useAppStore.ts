@@ -8,7 +8,13 @@
 
 import { create } from 'zustand'
 
-import type { Artifact, Briefing, Ingest, Session } from '@shared/index'
+import type {
+  Artifact,
+  Briefing,
+  Ingest,
+  Session,
+  Source,
+} from '@shared/index'
 
 export type Route =
   | { name: 'feed' }
@@ -22,6 +28,8 @@ export type Route =
   | { name: 'triggers' }
   | { name: 'component-library' }
   | { name: 'agent-states' }
+  | { name: 'sources' }
+  | { name: 'source'; id: string }
 
 export interface ProfileSummary {
   name: string
@@ -50,6 +58,7 @@ export interface AppStore {
   agentReady: boolean
   loaded: boolean
   profile: ProfileSummary | null
+  sources: Source[]
   setData: (
     data: Partial<
       Pick<
@@ -61,11 +70,26 @@ export interface AppStore {
         | 'agentReady'
         | 'loaded'
         | 'profile'
+        | 'sources'
       >
     >,
   ) => void
   upsertArtifact: (a: Artifact) => void
   upsertSession: (s: Session) => void
+  upsertSource: (s: Source) => void
+  removeSource: (id: string) => void
+
+  // ─── Ambient activity banner ──────────────────────────────────
+  /** When set, the global scan-bar reflects a server-initiated run
+   *  ("agent is on a reflex", "agent updating an artifact", …). */
+  ambientRun:
+    | {
+        session_id: string
+        priority: string
+        description: string
+      }
+    | null
+  setAmbientRun: (run: AppStore['ambientRun']) => void
 
   // ─── Run state ────────────────────────────────────────────────
   /** Active /api/run id when one is streaming, else null. */
@@ -109,6 +133,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   agentReady: false,
   loaded: false,
   profile: null,
+  sources: [],
   setData: (data) => set(data),
   upsertArtifact: (a) =>
     set((s) => {
@@ -126,6 +151,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
       next[idx] = newSession
       return { sessions: next }
     }),
+  upsertSource: (newSource) =>
+    set((s) => {
+      const idx = s.sources.findIndex((x) => x.id === newSource.id)
+      if (idx === -1) return { sources: [...s.sources, newSource] }
+      const next = s.sources.slice()
+      next[idx] = newSource
+      return { sources: next }
+    }),
+  removeSource: (id) =>
+    set((s) => ({ sources: s.sources.filter((x) => x.id !== id) })),
+
+  ambientRun: null,
+  setAmbientRun: (ambientRun) => set({ ambientRun }),
 
   activeRunId: null,
   liveText: '',
