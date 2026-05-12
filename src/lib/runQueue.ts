@@ -82,7 +82,14 @@ function drain(sessionId: string): void {
   const slot = slots.get(sessionId)
   if (!slot || slot.running) return
   const next = slot.pending.shift()
-  if (!next) return
+  if (!next) {
+    // Nothing running, nothing pending — drop the slot so a session
+    // that ever enqueued a single run doesn't leave a permanent empty
+    // entry. Without this, `slots` grows unbounded for the lifetime
+    // of the server (and so does the /api/events queue.state payload).
+    slots.delete(sessionId)
+    return
+  }
   slot.running = next
 
   publish({
