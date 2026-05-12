@@ -18,7 +18,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type { Database as DB } from 'better-sqlite3'
 
 import type { Source, SourceMcpConfig } from '../../shared/index.js'
-import { listSources, updateSource } from '../db.js'
+import { listSources, setSourceRuntimeStatus } from '../db.js'
 import * as log from '../lib/log.js'
 
 interface ClientHandle {
@@ -124,16 +124,12 @@ function markStatus(
   error?: string,
 ): void {
   if (!depsRef) return
-  const list = listSources(depsRef.db)
-  const source = list.find((s) => s.id === sourceId)
-  if (!source) return
-  const next: Source = {
-    ...source,
+  // Same targeted update as the other source backends — don't write
+  // back the whole row, just the runtime-owned columns.
+  setSourceRuntimeStatus(depsRef.db, sourceId, {
     status,
-    last_error: error,
-    updated_at: new Date().toISOString(),
-  }
-  updateSource(depsRef.db, next)
+    last_error: error ?? null,
+  })
 }
 
 export function shutdownMcpClients(): void {

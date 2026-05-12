@@ -23,7 +23,7 @@ import {
 import {
   getSourceByName,
   insertSource,
-  updateSource,
+  setSourceRuntimeStatus,
 } from '../db.js'
 import { newId } from '../lib/id.js'
 import * as log from '../lib/log.js'
@@ -143,10 +143,7 @@ function randomInt(min: number, max: number): number {
 
 function markStatus(db: DB, source: Source, status: Source['status']): void {
   if (source.status === status) return
-  updateSource(db, {
-    ...source,
-    status,
-    last_error: undefined,
-    updated_at: new Date().toISOString(),
-  })
+  // Targeted update — never write back the stale snapshot, otherwise a
+  // user edit (label, ring buffer) racing with the tick would be lost.
+  setSourceRuntimeStatus(db, source.id, { status, last_error: null })
 }

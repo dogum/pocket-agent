@@ -34,6 +34,7 @@ import {
 import { publish } from '../lib/eventBus.js'
 import * as log from '../lib/log.js'
 import { enqueueRun } from '../lib/runQueue.js'
+import { resolveSubscriptions } from './persistArtifact.js'
 import { streamSession } from './streamSession.js'
 
 export interface UpdateArtifactFromObservationInput {
@@ -138,7 +139,12 @@ export async function updateArtifactFromObservation(
       // Re-use the CURRENT artifact's subscribes_to unless the agent
       // explicitly overrides — that keeps the watcher attached after the
       // update. The agent CAN clear it by setting subscribes_to: [].
-      const newSubs = final.draft.subscribes_to ?? current.subscribes_to
+      // Normalize through resolveSubscriptions so any source_name slugs
+      // the model emits get mapped back to canonical source_ids; without
+      // this the next fan-out via artifactsSubscribedToSource (which
+      // matches on source_id) would silently stop firing.
+      const newSubsRaw = final.draft.subscribes_to ?? current.subscribes_to
+      const newSubs = resolveSubscriptions(db, newSubsRaw)
       const updated = updateArtifactInPlace(db, current.id, {
         header: final.draft.header,
         components: final.draft.components,

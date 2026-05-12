@@ -720,6 +720,43 @@ export function deleteSource(database: DB, id: string): void {
   database.prepare(`DELETE FROM sources WHERE id = ?`).run(id)
 }
 
+/** Targeted update of a source's runtime status only — does NOT touch
+ *  config/enabled/label/description/ring_buffer_size. Use this from
+ *  background tasks (polling, MCP reconnects, fake_pulse) so a user
+ *  edit that races with an in-flight write doesn't get clobbered by
+ *  the task's stale snapshot of the row. */
+export function setSourceRuntimeStatus(
+  database: DB,
+  sourceId: string,
+  patch: {
+    status?: SourceStatus
+    last_error?: string | null
+    last_observation_at?: string | null
+  },
+): void {
+  const sets: string[] = []
+  const params: (string | null)[] = []
+  if (patch.status !== undefined) {
+    sets.push('status = ?')
+    params.push(patch.status)
+  }
+  if (patch.last_error !== undefined) {
+    sets.push('last_error = ?')
+    params.push(patch.last_error)
+  }
+  if (patch.last_observation_at !== undefined) {
+    sets.push('last_observation_at = ?')
+    params.push(patch.last_observation_at)
+  }
+  if (sets.length === 0) return
+  sets.push('updated_at = ?')
+  params.push(new Date().toISOString())
+  params.push(sourceId)
+  database
+    .prepare(`UPDATE sources SET ${sets.join(', ')} WHERE id = ?`)
+    .run(...params)
+}
+
 interface ObservationRow {
   id: string
   source_id: string

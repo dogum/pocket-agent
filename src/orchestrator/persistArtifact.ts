@@ -89,8 +89,11 @@ export function persistArtifact({
 
 /** Agents emit `source_name` (the slug); persistence resolves to
  *  `source_id`. We accept both for forward compatibility — if the agent
- *  ever sees ids, we won't break. Unknown names are filtered out. */
-function resolveSubscriptions(
+ *  ever sees ids, we won't break. Unknown names are filtered out.
+ *  Exported so agentUpdate can re-normalize on living-artifact updates
+ *  too — otherwise the model could regress an artifact's subscriptions
+ *  to slugs that `artifactsSubscribedToSource` can't match by id. */
+export function resolveSubscriptions(
   db: DB,
   raw: ArtifactSubscription[] | undefined,
 ): ArtifactSubscription[] {

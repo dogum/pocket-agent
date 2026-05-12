@@ -16,7 +16,7 @@ import type {
   Source,
   SourcePolledUrlConfig,
 } from '../../shared/index.js'
-import { listSources, updateSource } from '../db.js'
+import { listSources, setSourceRuntimeStatus } from '../db.js'
 import * as log from '../lib/log.js'
 import { ingestObservation } from './observations.js'
 
@@ -114,12 +114,13 @@ async function poll(sourceId: string): Promise<void> {
     const payload = pluckPath(parsed, cfg.payload_path)
     const obj = isRecord(payload) ? payload : { value: payload }
 
+    // Only touch status/last_error here — never write back the whole
+    // source snapshot, or a user edit that landed during the fetch
+    // (disable, config change, ring_buffer_size) would be reverted.
     if (source.status !== 'connected') {
-      updateSource(db, {
-        ...source,
+      setSourceRuntimeStatus(db, source.id, {
         status: 'connected',
-        last_error: undefined,
-        updated_at: new Date().toISOString(),
+        last_error: null,
       })
     }
 
@@ -134,11 +135,9 @@ async function poll(sourceId: string): Promise<void> {
 }
 
 function markError(db: DB, source: Source, message: string): void {
-  updateSource(db, {
-    ...source,
+  setSourceRuntimeStatus(db, source.id, {
     status: 'error',
     last_error: message,
-    updated_at: new Date().toISOString(),
   })
   log.warn(`poll · ${source.name} failed: ${message}`)
 }
