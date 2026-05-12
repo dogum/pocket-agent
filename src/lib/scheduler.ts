@@ -30,7 +30,10 @@ import type {
 import { rowToSession } from '../db.js'
 import { newId } from './id.js'
 import { buildPrompt } from '../orchestrator/buildPrompt.js'
-import { streamSession } from '../orchestrator/streamSession.js'
+import {
+  exitReasonToRunStatus,
+  streamSession,
+} from '../orchestrator/streamSession.js'
 import { parseArtifact } from '../orchestrator/parseArtifact.js'
 import { persistArtifact } from '../orchestrator/persistArtifact.js'
 import { rowToIngest } from '../db.js'
@@ -281,7 +284,7 @@ async function fireTrigger(sessionId: string, triggerId: string): Promise<void> 
           'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
         ).run(
           final.managedSessionId,
-          final.exitReason === 'end_turn' ? 'idle' : final.exitReason,
+          exitReasonToRunStatus(final.exitReason),
           session.id,
         )
       }

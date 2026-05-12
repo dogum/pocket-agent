@@ -33,7 +33,10 @@ import * as log from '../lib/log.js'
 import { enqueueRun } from '../lib/runQueue.js'
 import { buildPrompt } from './buildPrompt.js'
 import { persistArtifact } from './persistArtifact.js'
-import { streamSession } from './streamSession.js'
+import {
+  exitReasonToRunStatus,
+  streamSession,
+} from './streamSession.js'
 
 export interface FireReflexInput {
   db: DB
@@ -152,7 +155,7 @@ You were configured to fire on this pattern: "${fresh.description}"${fresh.artif
           'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
         ).run(
           final.managedSessionId,
-          final.exitReason === 'end_turn' ? 'idle' : final.exitReason,
+          exitReasonToRunStatus(final.exitReason),
           session.id,
         )
       }

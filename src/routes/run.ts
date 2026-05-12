@@ -29,6 +29,7 @@ import { enqueueRun } from '../lib/runQueue.js'
 import { buildPrompt } from '../orchestrator/buildPrompt.js'
 import { persistArtifact } from '../orchestrator/persistArtifact.js'
 import {
+  exitReasonToRunStatus,
   streamSession,
   type StreamSessionResult,
 } from '../orchestrator/streamSession.js'
@@ -182,9 +183,7 @@ export function runRoutes(config: Config, db: DB): Hono {
               'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
             ).run(
               finalResult.managedSessionId,
-              finalResult.exitReason === 'end_turn'
-                ? 'idle'
-                : finalResult.exitReason,
+              exitReasonToRunStatus(finalResult.exitReason),
               session.id,
             )
           }

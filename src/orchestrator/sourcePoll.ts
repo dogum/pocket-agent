@@ -29,6 +29,12 @@ interface PollerHandle {
 
 const pollers = new Map<string, PollerHandle>()
 
+/** In-flight guard. If a fetch is slower than the cadence, the next
+ *  tick must skip rather than launch a parallel request. Otherwise we
+ *  duplicate observations and hammer both the upstream endpoint and the
+ *  local fan-out pipeline. */
+const inFlight = new Set<string>()
+
 export interface PollDeps {
   db: DB
   client: Anthropic
@@ -88,6 +94,19 @@ export function reconcilePollers(): void {
 }
 
 async function poll(sourceId: string): Promise<void> {
+  if (!depsRef) return
+  // Skip if the previous tick is still running. Slow upstream + short
+  // cadence used to overlap and emit duplicate observations.
+  if (inFlight.has(sourceId)) return
+  inFlight.add(sourceId)
+  try {
+    await pollOnce(sourceId)
+  } finally {
+    inFlight.delete(sourceId)
+  }
+}
+
+async function pollOnce(sourceId: string): Promise<void> {
   if (!depsRef) return
   const { db } = depsRef
   // Re-read each tick — config may have changed.
@@ -167,4 +186,5 @@ function summarize(payload: Record<string, unknown>): string {
 export function shutdownSourcePollers(): void {
   for (const handle of pollers.values()) clearInterval(handle.timer)
   pollers.clear()
+  inFlight.clear()
 }

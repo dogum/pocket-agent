@@ -41,6 +41,107 @@ function clampRingBuffer(n: number): number {
     Math.min(MAX_RING_BUFFER_SIZE, Math.floor(n)),
   )
 }
+
+/** Kind-aware shape check on a SourceConfig blob. We refuse to persist
+ *  a config that the corresponding backend can't actually use — a
+ *  `polled_url` source missing a URL would otherwise sit in the poller
+ *  and call `fetch(undefined)` every cadence, generating endless error
+ *  rows. Returns the (canonical) config on success. */
+function validateConfig(
+  kind: Source['kind'],
+  raw: unknown,
+):
+  | { ok: true; config: SourceConfig }
+  | { ok: false; error: string } {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, error: 'config must be an object' }
+  }
+  const cfg = raw as Record<string, unknown>
+  if (cfg.kind !== undefined && cfg.kind !== kind) {
+    return {
+      ok: false,
+      error: `config.kind ("${String(cfg.kind)}") does not match source kind ("${kind}")`,
+    }
+  }
+  switch (kind) {
+    case 'polled_url': {
+      if (typeof cfg.url !== 'string' || !cfg.url.trim()) {
+        return { ok: false, error: 'config.url is required for polled_url' }
+      }
+      try {
+        new URL(cfg.url)
+      } catch {
+        return { ok: false, error: 'config.url is not a valid URL' }
+      }
+      const poll =
+        typeof cfg.poll_seconds === 'number' && Number.isFinite(cfg.poll_seconds)
+          ? Math.floor(cfg.poll_seconds)
+          : 60
+      const headers =
+        cfg.headers && typeof cfg.headers === 'object' && !Array.isArray(cfg.headers)
+          ? (cfg.headers as Record<string, string>)
+          : undefined
+      const payload_path =
+        typeof cfg.payload_path === 'string' ? cfg.payload_path : undefined
+      return {
+        ok: true,
+        config: {
+          kind: 'polled_url',
+          url: cfg.url.trim(),
+          poll_seconds: Math.max(30, poll),
+          headers,
+          payload_path,
+        },
+      }
+    }
+    case 'mcp': {
+      if (typeof cfg.endpoint !== 'string' || !cfg.endpoint.trim()) {
+        return { ok: false, error: 'config.endpoint is required for mcp' }
+      }
+      try {
+        new URL(cfg.endpoint)
+      } catch {
+        return { ok: false, error: 'config.endpoint is not a valid URL' }
+      }
+      const subscribe = Array.isArray(cfg.subscribe)
+        ? cfg.subscribe.filter((s): s is string => typeof s === 'string')
+        : undefined
+      const auth_env_var =
+        typeof cfg.auth_env_var === 'string' ? cfg.auth_env_var : undefined
+      return {
+        ok: true,
+        config: {
+          kind: 'mcp',
+          endpoint: cfg.endpoint.trim(),
+          auth_env_var,
+          subscribe,
+        },
+      }
+    }
+    case 'webhook': {
+      if (typeof cfg.path !== 'string' || !cfg.path.trim()) {
+        return { ok: false, error: 'config.path is required for webhook' }
+      }
+      const secret_env_var =
+        typeof cfg.secret_env_var === 'string' ? cfg.secret_env_var : undefined
+      return {
+        ok: true,
+        config: { kind: 'webhook', path: cfg.path.trim(), secret_env_var },
+      }
+    }
+    case 'demo': {
+      const cad =
+        typeof cfg.cadence_seconds === 'number' &&
+        Number.isFinite(cfg.cadence_seconds)
+          ? Math.floor(cfg.cadence_seconds)
+          : 60
+      return {
+        ok: true,
+        config: { kind: 'demo', cadence_seconds: Math.max(15, cad) },
+      }
+    }
+  }
+}
 import {
   attachSource,
   deleteSource,
@@ -94,6 +195,8 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
     if (getSourceByName(db, body.name)) {
       return c.json({ error: 'source name already exists' }, 409)
     }
+    const cfgResult = validateConfig(body.kind, body.config)
+    if (!cfgResult.ok) return c.json({ error: cfgResult.error }, 400)
     const now = new Date().toISOString()
     const source: Source = {
       id: newId('src'),
@@ -102,7 +205,7 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
       label: body.label,
       description: body.description,
       status: 'configuring',
-      config: body.config,
+      config: cfgResult.config,
       enabled: Boolean(body.enabled),
       ring_buffer_size: clampRingBuffer(
         body.ring_buffer_size ?? DEFAULT_RING_BUFFER_SIZE,
@@ -132,12 +235,22 @@ export function sourcesRoutes(deps: RoutesDeps): Hono {
       config: SourceConfig
       ring_buffer_size: number
     }>
+    // If the caller is changing config, validate it for the existing
+    // kind. Kind itself is immutable — switching kinds would invalidate
+    // every backend's running state for this source.
+    let nextConfig: SourceConfig = source.config
+    if (body.config !== undefined) {
+      const cfgResult = validateConfig(source.kind, body.config)
+      if (!cfgResult.ok) return c.json({ error: cfgResult.error }, 400)
+      nextConfig = cfgResult.config
+    }
+
     const next: Source = {
       ...source,
       label: body.label ?? source.label,
       description: body.description ?? source.description,
       enabled: typeof body.enabled === 'boolean' ? body.enabled : source.enabled,
-      config: body.config ?? source.config,
+      config: nextConfig,
       ring_buffer_size:
         body.ring_buffer_size !== undefined
           ? clampRingBuffer(body.ring_buffer_size)

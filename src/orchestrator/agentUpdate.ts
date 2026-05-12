@@ -35,7 +35,10 @@ import { publish } from '../lib/eventBus.js'
 import * as log from '../lib/log.js'
 import { enqueueRun } from '../lib/runQueue.js'
 import { resolveSubscriptions } from './persistArtifact.js'
-import { streamSession } from './streamSession.js'
+import {
+  exitReasonToRunStatus,
+  streamSession,
+} from './streamSession.js'
 
 export interface UpdateArtifactFromObservationInput {
   db: DB
@@ -124,7 +127,7 @@ export async function updateArtifactFromObservation(
           'UPDATE sessions SET managed_session_id = ?, run_status = ? WHERE id = ?',
         ).run(
           final.managedSessionId,
-          final.exitReason === 'end_turn' ? 'idle' : final.exitReason,
+          exitReasonToRunStatus(final.exitReason),
           session.id,
         )
       }

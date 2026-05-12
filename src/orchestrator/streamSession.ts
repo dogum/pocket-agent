@@ -61,6 +61,29 @@ export interface StreamSessionResult {
   errorMessage?: string
 }
 
+export type RunExitReason = StreamSessionResult['exitReason']
+
+/** Map a run's exit reason to a value that fits the `sessions.run_status`
+ *  CHECK constraint (streaming | idle | requires_action | terminated |
+ *  error). `parse_error` collapses to `error` and `end_turn` to `idle`
+ *  so callers can write run_status without a SQLite constraint blowup
+ *  on reflex / artifact-update / trigger paths. */
+export function exitReasonToRunStatus(
+  reason: RunExitReason,
+): 'idle' | 'requires_action' | 'terminated' | 'error' {
+  switch (reason) {
+    case 'end_turn':
+      return 'idle'
+    case 'requires_action':
+      return 'requires_action'
+    case 'terminated':
+      return 'terminated'
+    case 'error':
+    case 'parse_error':
+      return 'error'
+  }
+}
+
 /** Anthropic-side statuses we know how to send a user.message to. We
  *  treat anything else (terminated / requires_action / errored / unknown)
  *  as a signal to start fresh. */
