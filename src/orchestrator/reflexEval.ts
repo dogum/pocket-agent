@@ -24,9 +24,9 @@ import type {
   Source,
 } from '../../shared/index.js'
 import {
+  completeReflexFire,
   getReflex,
   rowToSession,
-  updateReflex,
 } from '../db.js'
 import { publish } from '../lib/eventBus.js'
 import * as log from '../lib/log.js'
@@ -180,15 +180,14 @@ You were configured to fire on this pattern: "${fresh.description}"${fresh.artif
         ).run('failed', final.errorMessage ?? final.exitReason, ingestId)
       }
 
-      // Bump fire_count — last_fired_at was reserved at enqueue time
-      // by observations.ingestObservation so the debounce gate doesn't
-      // race against in-flight runs. We only count completed runs here.
-      const next = {
-        ...fresh,
-        fire_count: fresh.fire_count + 1,
-        updated_at: new Date().toISOString(),
-      }
-      updateReflex(db, next)
+      // Bump fire_count via a targeted UPDATE — last_fired_at was
+      // already reserved at enqueue time by observations.ingestObservation,
+      // and the rest of the reflex row (description, match, prompt,
+      // enabled, approved) is owned by user PATCHes which may have
+      // landed during the run. Writing the whole captured snapshot
+      // back would clobber them.
+      completeReflexFire(db, fresh.id)
+      const nextCount = fresh.fire_count + 1
 
       publish({
         type: 'reflex.fired',
@@ -198,7 +197,7 @@ You were configured to fire on this pattern: "${fresh.description}"${fresh.artif
       })
 
       log.ok(
-        `reflex · fired "${fresh.description}" (fires: ${next.fire_count})`,
+        `reflex · fired "${fresh.description}" (fires: ${nextCount})`,
       )
     },
   })

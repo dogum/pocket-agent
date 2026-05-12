@@ -1021,6 +1021,32 @@ export function deleteReflex(database: DB, id: string): void {
   database.prepare(`DELETE FROM reflexes WHERE id = ?`).run(id)
 }
 
+/** Targeted: stamp `last_fired_at` at the moment we decide to fire,
+ *  so subsequent observations within debounce_seconds skip. Doesn't
+ *  touch description/match/kickoff/approved/enabled — those are owned
+ *  by the user via PATCH and must not be reverted by a fire-path
+ *  writeback that's racing with a user edit. */
+export function reserveReflexFire(database: DB, id: string): void {
+  const now = new Date().toISOString()
+  database
+    .prepare(
+      `UPDATE reflexes SET last_fired_at = ?, updated_at = ? WHERE id = ?`,
+    )
+    .run(now, now, id)
+}
+
+/** Targeted: atomically increment fire_count after a successful run.
+ *  Same rationale as reserveReflexFire — never write the whole row. */
+export function completeReflexFire(database: DB, id: string): void {
+  database
+    .prepare(
+      `UPDATE reflexes
+       SET fire_count = fire_count + 1, updated_at = ?
+       WHERE id = ?`,
+    )
+    .run(new Date().toISOString(), id)
+}
+
 export function getReflex(database: DB, id: string): Reflex | null {
   const row = database
     .prepare(`SELECT * FROM reflexes WHERE id = ?`)

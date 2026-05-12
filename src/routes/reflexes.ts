@@ -75,6 +75,15 @@ export function reflexesRoutes(db: DB): Hono {
 
   app.post('/', async (c) => {
     const sessionId = c.req.param('sessionId') as string
+    // FK on reflexes.session_id would surface as an unhandled 500 if
+    // the parent session is missing — check explicitly and return 404.
+    const sessionRow = db
+      .prepare('SELECT id FROM sessions WHERE id = ?')
+      .get(sessionId)
+    if (!sessionRow) {
+      return c.json({ error: 'session_not_found' }, 404)
+    }
+
     const body = (await c.req.json().catch(() => null)) as Partial<{
       description: string
       match: ReflexMatch

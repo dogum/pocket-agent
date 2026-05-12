@@ -27,7 +27,7 @@ import {
   activeReflexesForSource,
   artifactsSubscribedToSource,
   recordObservation,
-  updateReflex,
+  reserveReflexFire,
 } from '../db.js'
 import { publish } from '../lib/eventBus.js'
 import * as log from '../lib/log.js'
@@ -84,15 +84,17 @@ export function ingestObservation(
     }
     if (!evaluateConditions(reflex.match.conditions, obs.payload)) continue
 
-    // Reserve the debounce slot synchronously before we hand off to
-    // the queue. The next observation in the same tick (or within
-    // debounce_seconds) will see this `last_fired_at` and skip.
+    // Reserve the debounce slot synchronously via a targeted UPDATE
+    // (only touches last_fired_at / updated_at) so a concurrent user
+    // PATCH against match / approved / enabled isn't reverted by our
+    // write. The next observation within debounce_seconds will see
+    // this last_fired_at and skip.
+    reserveReflexFire(deps.db, reflex.id)
     const reserved = {
       ...reflex,
       last_fired_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-    updateReflex(deps.db, reserved)
 
     // Schedule the fire — don't await, let the queue serialize.
     void fireReflex({
