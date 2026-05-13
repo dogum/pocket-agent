@@ -15,6 +15,7 @@ import type { Database as DB } from 'better-sqlite3'
 import type { Config } from '../client.js'
 import { rowToSession } from '../db.js'
 import { newId } from '../lib/id.js'
+import { hasActiveOrPending } from '../lib/runQueue.js'
 import {
   dropSession,
   reconcileSessionTriggers,
@@ -161,6 +162,23 @@ export function sessionsRoutes(_config: Config, db: DB): Hono {
       .prepare('SELECT * FROM sessions WHERE id = ?')
       .get(id) as Parameters<typeof rowToSession>[0] | undefined
     if (!existing) return c.json({ error: 'not_found' }, 404)
+
+    // Reject while a user / trigger / reflex / artifact-update run is
+    // in flight or queued — the run.ts post-write of
+    // `finalResult.managedSessionId` would otherwise silently undo
+    // this restart and leave the thread pinned to the old session.
+    // The user retries after the run finishes; the run-queue is
+    // single-job-per-session so this is a tight window.
+    if (hasActiveOrPending(id)) {
+      return c.json(
+        {
+          error: 'run_in_flight',
+          message:
+            'A run is active or queued on this session. Wait for it to finish, then restart the agent thread.',
+        },
+        409,
+      )
+    }
 
     db.prepare(`
       UPDATE sessions SET

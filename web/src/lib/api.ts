@@ -36,8 +36,28 @@ async function request<T>(
 }
 
 export class ApiError extends Error {
+  /** Parsed `{ error, message? }` body when the server returned JSON. */
+  public detail: { error?: string; message?: string } | null
   constructor(public status: number, public statusText: string, body: string) {
-    super(`${status} ${statusText}: ${body}`)
+    let parsed: { error?: string; message?: string } | null = null
+    try {
+      const candidate = JSON.parse(body) as unknown
+      if (
+        candidate !== null &&
+        typeof candidate === 'object' &&
+        !Array.isArray(candidate)
+      ) {
+        parsed = candidate as { error?: string; message?: string }
+      }
+    } catch {
+      // body wasn't JSON — leave parsed as null
+    }
+    // Prefer the server's `message` over the status line; this surfaces
+    // the friendly copy from routes that bother to provide one.
+    const niceMessage =
+      parsed?.message ?? parsed?.error ?? `${status} ${statusText}: ${body}`
+    super(niceMessage)
+    this.detail = parsed
   }
 }
 

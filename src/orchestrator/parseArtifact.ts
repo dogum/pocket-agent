@@ -481,6 +481,14 @@ function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
       normalizeNumber(c, 'min', 0)
       normalizeNumber(c, 'max', 100)
       break
+    case 'trigger_proposal':
+      // The renderer spreads `alternatives` into an array literal; a
+      // single object (a common model schema drift) would throw
+      // `TypeError: ... is not iterable`. Coerce to [].
+      if (c.alternatives !== undefined && !Array.isArray(c.alternatives)) {
+        c.alternatives = []
+      }
+      break
     case 'draft_review':
       normalizeArray(c, 'uncertain_spans')
       break

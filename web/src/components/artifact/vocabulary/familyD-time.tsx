@@ -159,7 +159,11 @@ export function CTriggerProposal({
   alternatives,
   onInteraction,
 }: TriggerProposalComponent & VocabularyRendererProps): JSX.Element {
-  const options = [{ label: cadence_label, cron }, ...(alternatives ?? [])]
+  // Belt-and-suspenders with the parser normalizer: never spread a
+  // non-array `alternatives` into an array literal — a single object
+  // would throw TypeError at render time and crash the artifact.
+  const safeAlternatives = Array.isArray(alternatives) ? alternatives : []
+  const options = [{ label: cadence_label, cron }, ...safeAlternatives]
   const [selectedCron, setSelectedCron] = useState(cron)
   const [state, setState] = useState<'pending' | 'approving' | 'approved'>(
     'pending',
