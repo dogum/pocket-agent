@@ -186,7 +186,42 @@ if (v2.ok) {
   }
 }
 
-// ── 3. Unknown component types still reject ─────────────────────────
+// ── 3. Prose-wrapped fenced artifact (Codex PR #10 regression) ──────
+// A leading {draft}-shaped brace in prose must NOT win over the real
+// fenced JSON that follows. The fence-aware extractor catches this
+// before the brace-scan fallback can latch onto the wrong segment.
+const proseWrappedFenced = `Here's the {draft} artifact you asked for:
+
+\`\`\`json
+${JSON.stringify({
+  header: {
+    label: 'NOTE',
+    title: 'Wrapped in prose with a stray brace',
+    timestamp_display: 'Just now',
+  },
+  priority: 'normal',
+  notify: false,
+  components: [{ type: 'paragraph', text: 'Hello.' }],
+})}
+\`\`\`
+
+Hope that's useful!`
+
+const wrapped = parseArtifact(proseWrappedFenced)
+assert.equal(
+  wrapped.ok,
+  true,
+  wrapped.ok
+    ? undefined
+    : `prose-wrapped fenced artifact should parse, got: ${wrapped.error}`,
+)
+if (wrapped.ok) {
+  assert.equal(wrapped.draft.header.label, 'NOTE')
+  assert.equal(wrapped.draft.components.length, 1)
+  assert.equal(wrapped.draft.components[0].type, 'paragraph')
+}
+
+// ── 4. Unknown component types still reject ─────────────────────────
 const unknown = parseArtifact(
   JSON.stringify({
     header: {
@@ -205,5 +240,6 @@ console.log(
   'parser smoke passed:',
   '\n  ✓ captured v1 artifact with inner markdown fence parses',
   '\n  ✓ v2 thinking trio (calculation + assumption_list + confidence_band) parses with fields intact',
+  '\n  ✓ prose-wrapped fenced artifact with stray {brace} in prose still parses',
   '\n  ✓ unknown component types still reject',
 )

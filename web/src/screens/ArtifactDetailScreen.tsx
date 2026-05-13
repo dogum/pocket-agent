@@ -6,7 +6,7 @@ import type {
   ArtifactVersion,
   ReflexProposalComponent,
 } from '@shared/index'
-import { ArtifactDetail } from '../components/artifact/ArtifactRenderer'
+import { ArtifactDetail, safeHref } from '../components/artifact/ArtifactRenderer'
 import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
 import { useRunDispatcher } from '../hooks/useRunDispatcher'
@@ -66,7 +66,19 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
         return
       }
       case 'external_link': {
-        if (act.url) window.open(act.url, '_blank', 'noopener')
+        if (act.url) {
+          // Agent-supplied URL — only follow http/https. window.open with
+          // javascript: runs in the app origin; same XSS path as a raw
+          // href bind. Belt-and-suspenders with link_preview's safeHref.
+          const safe = safeHref(act.url)
+          if (safe) {
+            window.open(safe, '_blank', 'noopener')
+          } else {
+            setActionFeedback(
+              `Blocked: action URL must use http:// or https://`,
+            )
+          }
+        }
         return
       }
       case 'navigate': {

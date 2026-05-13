@@ -815,11 +815,29 @@ function CLinkPreview({
   description,
   domain,
 }: LinkPreviewComponent): JSX.Element {
+  const safeUrl = safeHref(url)
   const host = domain ?? safeHost(url)
+  // Unsafe scheme (javascript:, data:, etc.) — render the card visually
+  // but make it non-clickable, with a tooltip explaining why. Agent
+  // output is model-generated and not trusted.
+  if (!safeUrl) {
+    return (
+      <div
+        className="c-link-preview blocked"
+        title="Blocked: unsafe URL scheme"
+        role="note"
+      >
+        {host && <span className="domain">{host}</span>}
+        {title && <span className="title">{title}</span>}
+        {description && <span className="desc">{description}</span>}
+        <span className="url">{url}</span>
+      </div>
+    )
+  }
   return (
     <a
       className="c-link-preview"
-      href={url}
+      href={safeUrl}
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -836,6 +854,23 @@ function safeHost(url: string): string {
     return new URL(url).host
   } catch {
     return ''
+  }
+}
+
+/** Validate an agent-supplied URL. Returns the parsed string only if
+ *  the scheme is http: or https:. Anything else (javascript:, data:,
+ *  vbscript:, file:, …) returns null so the renderer can degrade to a
+ *  non-clickable note. Used by link_preview and the external_link
+ *  action handler. */
+export function safeHref(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString()
+    }
+    return null
+  } catch {
+    return null
   }
 }
 

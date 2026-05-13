@@ -775,6 +775,15 @@
   letter-spacing: 0.02em;
   word-break: break-all;
 }
+/* Blocked link_preview — an agent-supplied URL with an unsafe scheme
+   (javascript:, data:, etc.) renders visually but isn't clickable.
+   Border flips to amber and cursor stays default. */
+.c-link-preview.blocked {
+  border-left-color: var(--amber);
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+.c-link-preview.blocked:hover { background: var(--surface-1); }
 
 /* ===== 19. map ===== */
 .c-map {

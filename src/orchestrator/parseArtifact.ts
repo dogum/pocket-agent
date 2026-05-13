@@ -114,18 +114,44 @@ const VALID_ACTION_TYPES = new Set([
 ])
 
 /** Pull a JSON object out of a string that might be wrapped in fences,
- *  preceded by prose, or followed by a trailing comment. We match the
- *  outermost {...} by counting braces, ignoring braces inside strings.  */
+ *  preceded by prose, followed by a trailing comment, or contain inner
+ *  markdown fences inside a `markdown` component's content.
+ *
+ *  Strategy (in order):
+ *    1. If the text contains BOTH an opening ``` and a closing ```,
+ *       extract everything between the FIRST opening fence and the
+ *       LAST closing fence. This handles:
+ *         • prose + fence + prose (Codex's case — leading `{draft}` in
+ *           prose won't trip the brace scanner because the fence path
+ *           wins first)
+ *         • a fenced artifact whose `markdown` component contains
+ *           inner ``` fences (the greedy match reaches the OUTER
+ *           closer, not the inner one)
+ *       Only return this candidate if it looks like a JSON object
+ *       (starts with `{`, ends with `}`); otherwise fall through.
+ *    2. Brace-scan the whole text — count balanced `{...}` while
+ *       tracking string boundaries so braces inside JSON strings are
+ *       ignored. */
 export function extractJson(text: string): string | null {
   const trimmed = text.trim()
 
-  // Strip only an outer fence. A valid Artifact may contain markdown
-  // components with inner ``` code fences; matching the first fence
-  // anywhere in the response mistakes those for the top-level payload.
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```\s*$/)
-  if (fenced) return fenced[1].trim()
+  // ── 1. Fence-aware extraction ──────────────────────────────────
+  // Match the FIRST opening ``` (with optional `json` marker) up to
+  // the LAST closing ```. Greedy `[\s\S]*` reaches the outer closer
+  // even if the artifact contains inner markdown fences.
+  const fence = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/)
+  const fallbackFence = trimmed.match(/```(?:json)?\s*\n?([\s\S]*)\n?\s*```/)
+  for (const m of [fence, fallbackFence]) {
+    if (!m) continue
+    const candidate = m[1].trim()
+    if (candidate.startsWith('{') && candidate.endsWith('}')) {
+      return candidate
+    }
+  }
 
-  // Otherwise scan for a balanced top-level object.
+  // ── 2. Brace scan ──────────────────────────────────────────────
+  // Scan for a balanced top-level object, ignoring braces inside
+  // JSON string values.
   let depth = 0
   let start = -1
   let inStr = false
