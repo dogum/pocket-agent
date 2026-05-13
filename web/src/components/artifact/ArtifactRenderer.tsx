@@ -42,7 +42,40 @@ import type {
   TimelineComponent,
 } from '@shared/index'
 import { describeCondition } from '@shared/index'
+import type { ArtifactInteractionHandler } from '../../lib/artifactInteractions'
 import { Icon } from '../icons/Icon'
+import {
+  CAgentTasks,
+  CAnnotatedImage,
+  CAnnotatedText,
+  CAssumptionList,
+  CCalculation,
+  CCalendarView,
+  CCheckpoint,
+  CConfidenceBand,
+  CCounter,
+  CCounterProposal,
+  CDecisionMatrix,
+  CDecisionTree,
+  CDeferredList,
+  CDiff,
+  CDraftReview,
+  CHeatmap,
+  CNetwork,
+  CPlanCard,
+  CProsCons,
+  CRanking,
+  CSankey,
+  CSchedulePicker,
+  CScratchpad,
+  CSessionBrief,
+  CTimer,
+  CTradeoffSlider,
+  CTranscript,
+  CTree,
+  CTriggerProposal,
+  CWhatIf,
+} from './vocabulary'
 
 const colorToVar = (c?: ThemeColor): string => {
   switch (c) {
@@ -811,6 +844,7 @@ export function ArtifactComponentView({
   component,
   onChecklistToggle,
   onQuestionSetSubmit,
+  onInteraction,
   onReflexApprove,
   onReflexDismiss,
 }: {
@@ -819,6 +853,7 @@ export function ArtifactComponentView({
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onInteraction?: ArtifactInteractionHandler
   onReflexApprove?: (proposal: ReflexProposalComponent) => void | Promise<void>
   onReflexDismiss?: () => void
 }): JSX.Element | null {
@@ -869,6 +904,66 @@ export function ArtifactComponentView({
       return <CKeyValueList {...component} />
     case 'link_preview':
       return <CLinkPreview {...component} />
+    case 'calculation':
+      return <CCalculation {...component} />
+    case 'what_if':
+      return <CWhatIf {...component} onInteraction={onInteraction} />
+    case 'assumption_list':
+      return <CAssumptionList {...component} onInteraction={onInteraction} />
+    case 'confidence_band':
+      return <CConfidenceBand {...component} />
+    case 'counter_proposal':
+      return <CCounterProposal {...component} onInteraction={onInteraction} />
+    case 'tradeoff_slider':
+      return <CTradeoffSlider {...component} onInteraction={onInteraction} />
+    case 'draft_review':
+      return <CDraftReview {...component} onInteraction={onInteraction} />
+    case 'plan_card':
+      return <CPlanCard {...component} />
+    case 'decision_tree':
+      return <CDecisionTree {...component} onInteraction={onInteraction} />
+    case 'checkpoint':
+      return <CCheckpoint {...component} />
+    case 'schedule_picker':
+      return <CSchedulePicker {...component} onInteraction={onInteraction} />
+    case 'calendar_view':
+      return <CCalendarView {...component} />
+    case 'heatmap':
+      return <CHeatmap {...component} />
+    case 'trigger_proposal':
+      return <CTriggerProposal {...component} onInteraction={onInteraction} />
+    case 'annotated_text':
+      return <CAnnotatedText {...component} />
+    case 'diff':
+      return <CDiff {...component} />
+    case 'transcript':
+      return <CTranscript {...component} />
+    case 'annotated_image':
+      return <CAnnotatedImage {...component} />
+    case 'session_brief':
+      return <CSessionBrief {...component} />
+    case 'agent_tasks':
+      return <CAgentTasks {...component} />
+    case 'deferred_list':
+      return <CDeferredList {...component} />
+    case 'decision_matrix':
+      return <CDecisionMatrix {...component} />
+    case 'pros_cons':
+      return <CProsCons {...component} />
+    case 'ranking':
+      return <CRanking {...component} onInteraction={onInteraction} />
+    case 'timer':
+      return <CTimer {...component} onInteraction={onInteraction} />
+    case 'counter':
+      return <CCounter {...component} onInteraction={onInteraction} />
+    case 'scratchpad':
+      return <CScratchpad {...component} onInteraction={onInteraction} />
+    case 'network':
+      return <CNetwork {...component} />
+    case 'tree':
+      return <CTree {...component} />
+    case 'sankey':
+      return <CSankey {...component} />
     case 'reflex_proposal':
       return (
         <CReflexProposal
@@ -942,6 +1037,7 @@ export function ArtifactDetail({
   artifact,
   onAction,
   onQuestionSetSubmit,
+  onInteraction,
   onReflexApprove,
   onShowHistory,
 }: {
@@ -950,6 +1046,7 @@ export function ArtifactDetail({
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onInteraction?: ArtifactInteractionHandler
   onReflexApprove?: (
     proposal: ReflexProposalComponent,
   ) => void | Promise<void>
@@ -1024,6 +1121,7 @@ export function ArtifactDetail({
             }
             onChecklistToggle={toggle}
             onQuestionSetSubmit={onQuestionSetSubmit}
+            onInteraction={onInteraction}
           />
         ))}
       </div>

@@ -60,6 +60,36 @@ const VALID_COMPONENT_TYPES = new Set([
   'markdown',
   'key_value_list',
   'link_preview',
+  'calculation',
+  'what_if',
+  'assumption_list',
+  'confidence_band',
+  'counter_proposal',
+  'tradeoff_slider',
+  'draft_review',
+  'plan_card',
+  'decision_tree',
+  'checkpoint',
+  'schedule_picker',
+  'calendar_view',
+  'heatmap',
+  'trigger_proposal',
+  'annotated_text',
+  'diff',
+  'transcript',
+  'annotated_image',
+  'session_brief',
+  'agent_tasks',
+  'deferred_list',
+  'decision_matrix',
+  'pros_cons',
+  'ranking',
+  'timer',
+  'counter',
+  'scratchpad',
+  'network',
+  'tree',
+  'sankey',
   'reflex_proposal',
 ])
 
@@ -87,8 +117,12 @@ const VALID_ACTION_TYPES = new Set([
  *  preceded by prose, or followed by a trailing comment. We match the
  *  outermost {...} by counting braces, ignoring braces inside strings.  */
 export function extractJson(text: string): string | null {
-  // Strip leading code fences quickly.
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  const trimmed = text.trim()
+
+  // Strip only an outer fence. A valid Artifact may contain markdown
+  // components with inner ``` code fences; matching the first fence
+  // anywhere in the response mistakes those for the top-level payload.
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```\s*$/)
   if (fenced) return fenced[1].trim()
 
   // Otherwise scan for a balanced top-level object.
@@ -96,8 +130,8 @@ export function extractJson(text: string): string | null {
   let start = -1
   let inStr = false
   let escape = false
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]
     if (escape) {
       escape = false
       continue
@@ -117,7 +151,7 @@ export function extractJson(text: string): string | null {
     } else if (ch === '}') {
       depth--
       if (depth === 0 && start !== -1) {
-        return text.slice(start, i + 1)
+        return trimmed.slice(start, i + 1)
       }
     }
   }
@@ -396,5 +430,114 @@ function normalizeComponent(c: Record<string, unknown>): ArtifactComponent {
     const parsed = parseConditions(c.conditions, 'reflex_proposal')
     c.conditions = parsed.ok ? parsed.conditions : []
   }
+
+  normalizeVocabularyV2Component(c)
   return c as unknown as ArtifactComponent
+}
+
+function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
+  switch (c.type) {
+    case 'calculation':
+      normalizeArray(c, 'steps')
+      break
+    case 'what_if':
+      normalizeArray(c, 'inputs')
+      normalizeArray(c, 'outputs')
+      break
+    case 'assumption_list':
+      normalizeArray(c, 'items')
+      break
+    case 'counter_proposal':
+      normalizeArray(c, 'segments')
+      break
+    case 'tradeoff_slider':
+      normalizeNumber(c, 'value', 50)
+      normalizeNumber(c, 'min', 0)
+      normalizeNumber(c, 'max', 100)
+      break
+    case 'draft_review':
+      normalizeArray(c, 'uncertain_spans')
+      break
+    case 'plan_card':
+      normalizeArray(c, 'steps')
+      break
+    case 'decision_tree':
+      normalizeArray(c, 'branches')
+      break
+    case 'checkpoint':
+      normalizeArray(c, 'stages')
+      break
+    case 'schedule_picker':
+      normalizeArray(c, 'slots')
+      break
+    case 'calendar_view':
+      normalizeArray(c, 'days')
+      break
+    case 'heatmap':
+      normalizeArray(c, 'values')
+      break
+    case 'annotated_text':
+      normalizeArray(c, 'annotations')
+      break
+    case 'transcript':
+      normalizeArray(c, 'lines')
+      break
+    case 'annotated_image':
+      normalizeArray(c, 'pins')
+      break
+    case 'session_brief':
+      normalizeArray(c, 'facts')
+      normalizeArray(c, 'open_threads')
+      break
+    case 'agent_tasks':
+      normalizeArray(c, 'tasks')
+      break
+    case 'deferred_list':
+      normalizeArray(c, 'items')
+      break
+    case 'decision_matrix':
+      normalizeArray(c, 'options')
+      normalizeArray(c, 'criteria')
+      break
+    case 'pros_cons':
+      normalizeArray(c, 'pros')
+      normalizeArray(c, 'cons')
+      break
+    case 'ranking':
+      normalizeArray(c, 'items')
+      break
+    case 'timer':
+      normalizeNumber(c, 'duration_seconds', 0)
+      normalizeNumber(c, 'elapsed_seconds', 0)
+      break
+    case 'counter':
+      normalizeNumber(c, 'value', 0)
+      break
+    case 'network':
+      normalizeArray(c, 'nodes')
+      normalizeArray(c, 'edges')
+      break
+    case 'tree':
+      normalizeArray(c, 'nodes')
+      break
+    case 'sankey':
+      normalizeArray(c, 'nodes')
+      normalizeArray(c, 'flows')
+      break
+  }
+}
+
+function normalizeArray(c: Record<string, unknown>, key: string): void {
+  if (!Array.isArray(c[key])) c[key] = []
+}
+
+function normalizeNumber(
+  c: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): void {
+  const value = c[key]
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    c[key] = fallback
+  }
 }

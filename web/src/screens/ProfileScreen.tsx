@@ -393,8 +393,14 @@ export function ProfileScreen(): JSX.Element {
           <NavRow
             icon="orbit"
             name="What the agent can render"
-            val="19 components"
+            val="24 components"
             onClick={() => go({ name: 'component-library' })}
+          />
+          <NavRow
+            icon="lab"
+            name="Showing the work"
+            val="30 thinking components"
+            onClick={() => go({ name: 'vocabulary-v2' })}
           />
           <NavRow
             icon="sparkles"

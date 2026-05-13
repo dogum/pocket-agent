@@ -27,6 +27,7 @@ export type Route =
   | { name: 'privacy' }
   | { name: 'triggers' }
   | { name: 'component-library' }
+  | { name: 'vocabulary-v2' }
   | { name: 'agent-states' }
   | { name: 'sources' }
   | { name: 'source'; id: string }
@@ -98,7 +99,10 @@ export interface AppStore {
   liveText: string
   /** Latest tool the agent picked up, for the scan-bar copy. */
   liveTool: string | null
+  /** Most recent foreground run error, shown until the next run starts. */
+  lastRunError: string | null
   setRun: (data: Partial<Pick<AppStore, 'activeRunId' | 'liveText' | 'liveTool'>>) => void
+  setRunError: (message: string | null) => void
   clearRun: () => void
 
   // ─── Queue ────────────────────────────────────────────────────
@@ -168,7 +172,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeRunId: null,
   liveText: '',
   liveTool: null,
+  lastRunError: null,
   setRun: (data) => set(data),
+  setRunError: (lastRunError) => set({ lastRunError }),
   clearRun: () => set({ activeRunId: null, liveText: '', liveTool: null }),
 
   queuedRuns: [],

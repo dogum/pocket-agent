@@ -1146,6 +1146,25 @@
   text-transform: uppercase;
 }
 
+.run-error-card {
+  margin: 0 var(--screen-pad) var(--space-md);
+  border: 1px solid rgba(196,91,91,0.38);
+  border-left: 3px solid var(--red);
+  border-radius: 10px;
+  background: var(--surface-1);
+  padding: 12px 14px;
+}
+
+.run-error-card .t-tag {
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.run-error-card .t-body-sm {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
 /* Sources strip on the session detail screen */
 .sources-strip {
   display: flex;
@@ -1276,4 +1295,3 @@
   color: var(--text-2);
   font-size: var(--t-body-sm);
 }
-

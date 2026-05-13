@@ -22,6 +22,7 @@
     "build:web": "vite build",
     "start": "tsx src/index.ts",
     "bootstrap-agent": "tsx src/bootstrap-agent.ts",
+    "smoke:parser": "tsx src/orchestrator/parseArtifact.smoke.ts",
     "type-check": "tsc -b",
     "type-check:server": "tsc -p tsconfig.server.json --noEmit",
     "type-check:web": "tsc -p tsconfig.web.json --noEmit"

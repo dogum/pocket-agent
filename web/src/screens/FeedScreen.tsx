@@ -14,6 +14,7 @@ export function FeedScreen(): JSX.Element {
   const activeRun = useAppStore((s) => s.activeRunId !== null)
   const liveText = useAppStore((s) => s.liveText)
   const liveTool = useAppStore((s) => s.liveTool)
+  const lastRunError = useAppStore((s) => s.lastRunError)
   const queuedCount = useAppStore((s) => s.queuedRuns.length)
   const go = useAppStore((s) => s.go)
 
@@ -67,6 +68,13 @@ export function FeedScreen(): JSX.Element {
           detail={liveTool ?? liveText.slice(-60)}
           readout={queuedCount > 0 ? `+${queuedCount} queued` : undefined}
         />
+      )}
+
+      {lastRunError && !activeRun && (
+        <div className="run-error-card rise">
+          <div className="t-tag">Agent run failed</div>
+          <div className="t-body-sm">{lastRunError}</div>
+        </div>
       )}
 
       <div className="card-stack rise" style={{ marginTop: 4 }}>

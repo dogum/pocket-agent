@@ -18,6 +18,7 @@ import { SessionsScreen } from './screens/SessionsScreen'
 import { SourceDetailScreen } from './screens/SourceDetailScreen'
 import { SourcesScreen } from './screens/SourcesScreen'
 import { TriggersScreen } from './screens/TriggersScreen'
+import { VocabularyV2Screen } from './screens/VocabularyV2Screen'
 import { useAppStore } from './store/useAppStore'
 import { resolveTheme, useSettings } from './store/useSettings'
 
@@ -142,6 +143,8 @@ export function App(): JSX.Element {
         return <TriggersScreen />
       case 'component-library':
         return <ComponentLibraryScreen />
+      case 'vocabulary-v2':
+        return <VocabularyV2Screen />
       case 'agent-states':
         return <AgentStatesScreen />
       case 'sources':

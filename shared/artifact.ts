@@ -12,6 +12,15 @@
 export type ThemeColor = 'signal' | 'cool' | 'green' | 'amber' | 'red' | 'muted'
 export type Trend = 'up' | 'down' | 'flat' | 'warn'
 export type Priority = 'high' | 'normal' | 'low'
+export type ComponentConfidence = 'low' | 'medium' | 'high'
+export type ComponentState = 'pending' | 'active' | 'complete' | 'blocked' | 'skipped'
+export type WorkState =
+  | 'running'
+  | 'scheduled'
+  | 'waiting_on_user'
+  | 'waiting_on_external'
+  | 'paused'
+  | 'done'
 
 // ─── Actions ─────────────────────────────────────────────────────────
 export type ActionType =
@@ -177,6 +186,11 @@ export interface ChecklistComponent {
   }>
 }
 
+export interface ComponentFollowUpAction {
+  type: 'follow_up'
+  prompt: string
+}
+
 export interface ComparisonComponent {
   type: 'comparison'
   items: Array<{
@@ -257,6 +271,390 @@ export interface LinkPreviewComponent {
   domain?: string
 }
 
+export interface CalculationComponent {
+  type: 'calculation'
+  label?: string
+  steps: Array<{
+    id?: string
+    label: string
+    expression?: string
+    value: string
+    emphasis?: boolean
+  }>
+  result?: {
+    label: string
+    value: string
+    color?: ThemeColor
+  }
+}
+
+export interface WhatIfComponent {
+  type: 'what_if'
+  label?: string
+  inputs: Array<{
+    id: string
+    label: string
+    kind: 'choice' | 'slider' | 'number'
+    value: string | number
+    choices?: string[]
+    min?: number
+    max?: number
+    step?: number
+    unit?: string
+  }>
+  outputs: Array<{
+    id: string
+    label: string
+    value: string
+    color?: ThemeColor
+  }>
+  submit_label?: string
+}
+
+export interface AssumptionListComponent {
+  type: 'assumption_list'
+  items: Array<{
+    id: string
+    text: string
+    confidence?: ComponentConfidence
+    correction_prompt?: string
+  }>
+}
+
+export interface ConfidenceBandComponent {
+  type: 'confidence_band'
+  value: string
+  unit?: string
+  label?: string
+  low?: number
+  mid?: number
+  high?: number
+  method?: string
+  color?: ThemeColor
+}
+
+export interface CounterProposalComponent {
+  type: 'counter_proposal'
+  intro?: string
+  segments: Array<{
+    id: string
+    label: string
+    proposal: string
+    state?: 'pending' | 'accepted' | 'modified' | 'rejected'
+    modified_text?: string
+    reject_reason?: string
+  }>
+  submit_label?: string
+}
+
+export interface TradeoffSliderComponent {
+  type: 'tradeoff_slider'
+  question: string
+  left: { label: string; description?: string }
+  right: { label: string; description?: string }
+  value: number
+  min?: number
+  max?: number
+  note?: string
+  submit_label?: string
+}
+
+export interface DraftReviewComponent {
+  type: 'draft_review'
+  title?: string
+  recipient?: string
+  body: string
+  uncertain_spans?: Array<{
+    id: string
+    text: string
+    reason?: string
+  }>
+  submit_label?: string
+}
+
+export interface PlanCardComponent {
+  type: 'plan_card'
+  goal?: string
+  steps: Array<{
+    id: string
+    title: string
+    detail?: string
+    state: 'done' | 'doing' | 'pending' | 'blocked' | 'skipped'
+    ask?: {
+      id: string
+      label: string
+      placeholder?: string
+      value?: string
+    }
+  }>
+}
+
+export interface DecisionTreeComponent {
+  type: 'decision_tree'
+  question: string
+  branches: Array<{
+    id: string
+    choice: string
+    next_question?: string
+    conclusion?: string
+    color?: ThemeColor
+  }>
+  submit_label?: string
+}
+
+export interface CheckpointComponent {
+  type: 'checkpoint'
+  stages: Array<{
+    id: string
+    label: string
+    state: 'done' | 'current' | 'pending' | 'blocked'
+  }>
+  current_status?: string
+  next_unblock?: string
+}
+
+export interface SchedulePickerComponent {
+  type: 'schedule_picker'
+  question?: string
+  slots: Array<{
+    id: string
+    date_label: string
+    time_range: string
+    note?: string
+    preferred?: boolean
+    source?: string
+  }>
+  allow_other?: boolean
+  submit_label?: string
+}
+
+export interface CalendarViewComponent {
+  type: 'calendar_view'
+  title?: string
+  range_label?: string
+  days: Array<{
+    id: string
+    name: string
+    number: string
+    today?: boolean
+    events?: Array<{
+      id: string
+      time?: string
+      label: string
+      state?: 'planned' | 'done' | 'missed' | 'tentative'
+    }>
+  }>
+}
+
+export interface HeatmapComponent {
+  type: 'heatmap'
+  title?: string
+  streak_label?: string
+  month_labels?: string[]
+  day_labels?: string[]
+  values: Array<{
+    date: string
+    value: number
+  }>
+  max?: number
+}
+
+export interface TriggerProposalComponent {
+  type: 'trigger_proposal'
+  rationale?: string
+  cadence_label: string
+  cron: string
+  action: string
+  alternatives?: Array<{
+    label: string
+    cron: string
+  }>
+}
+
+export interface AnnotatedTextComponent {
+  type: 'annotated_text'
+  source_label?: string
+  content: string
+  annotations?: Array<{
+    id: string
+    text: string
+    note: string
+    color?: ThemeColor
+  }>
+}
+
+export interface DiffComponent {
+  type: 'diff'
+  before_label?: string
+  after_label?: string
+  before: string
+  after: string
+}
+
+export interface TranscriptComponent {
+  type: 'transcript'
+  source_label?: string
+  lines: Array<{
+    id: string
+    time?: string
+    speaker?: string
+    text: string
+    pinned?: boolean
+    note?: string
+  }>
+}
+
+export interface AnnotatedImageComponent {
+  type: 'annotated_image'
+  url?: string
+  caption?: string
+  pins: Array<{
+    id: string
+    x: number
+    y: number
+    label: string
+    note?: string
+    color?: ThemeColor
+  }>
+}
+
+export interface SessionBriefComponent {
+  type: 'session_brief'
+  goal?: string
+  facts: Array<{
+    key: string
+    value: string
+    confidence?: ComponentConfidence
+    last_seen?: string
+    correction_prompt?: string
+  }>
+  open_threads?: string[]
+}
+
+export interface AgentTasksComponent {
+  type: 'agent_tasks'
+  tasks: Array<{
+    id: string
+    label: string
+    state: WorkState
+    cadence?: string
+    detail?: string
+    cancel_prompt?: string
+  }>
+}
+
+export interface DeferredListComponent {
+  type: 'deferred_list'
+  items: Array<{
+    id?: string
+    text: string
+    reason: string
+    pursue_prompt?: string
+  }>
+}
+
+export interface DecisionMatrixComponent {
+  type: 'decision_matrix'
+  options: string[]
+  criteria: Array<{
+    id: string
+    label: string
+    weight: number
+    scores: Record<string, number>
+  }>
+  recommended_option?: string
+  rationale?: string
+}
+
+export interface ProsConsComponent {
+  type: 'pros_cons'
+  question?: string
+  pros: Array<{ text: string; weight?: number }>
+  cons: Array<{ text: string; weight?: number }>
+  recommendation?: string
+}
+
+export interface RankingComponent {
+  type: 'ranking'
+  question?: string
+  items: Array<{
+    id: string
+    label: string
+    rationale?: string
+  }>
+  submit_label?: string
+}
+
+export interface TimerComponent {
+  type: 'timer'
+  id: string
+  label: string
+  duration_seconds: number
+  elapsed_seconds?: number
+  mode?: 'countdown' | 'countup'
+  completion_prompt?: string
+}
+
+export interface CounterComponent {
+  type: 'counter'
+  id: string
+  label: string
+  value: number
+  target?: number
+  unit?: string
+  submit_label?: string
+}
+
+export interface ScratchpadComponent {
+  type: 'scratchpad'
+  id: string
+  title?: string
+  content: string
+  shared_with_agent?: boolean
+  privacy_note?: string
+}
+
+export interface NetworkComponent {
+  type: 'network'
+  nodes: Array<{
+    id: string
+    label: string
+    kind?: string
+    color?: ThemeColor
+  }>
+  edges: Array<{
+    from: string
+    to: string
+    label?: string
+    kind?: 'supports' | 'contradicts' | 'cites' | 'depends_on' | 'related'
+    color?: ThemeColor
+  }>
+}
+
+export interface TreeComponent {
+  type: 'tree'
+  root_label?: string
+  nodes: Array<{
+    id: string
+    label: string
+    parent_id?: string
+    value?: string
+    color?: ThemeColor
+  }>
+}
+
+export interface SankeyComponent {
+  type: 'sankey'
+  nodes: Array<{ id: string; label: string }>
+  flows: Array<{
+    from: string
+    to: string
+    value: number
+    label?: string
+    color?: ThemeColor
+  }>
+}
+
 /** A reflex (agent-authored watcher) the agent is proposing the user
  *  approve. Once approved, the reflex fires automatically when matching
  *  observations arrive on the named source. Approval / dismissal happens
@@ -305,6 +703,36 @@ export type ArtifactComponent =
   | MarkdownComponent
   | KeyValueListComponent
   | LinkPreviewComponent
+  | CalculationComponent
+  | WhatIfComponent
+  | AssumptionListComponent
+  | ConfidenceBandComponent
+  | CounterProposalComponent
+  | TradeoffSliderComponent
+  | DraftReviewComponent
+  | PlanCardComponent
+  | DecisionTreeComponent
+  | CheckpointComponent
+  | SchedulePickerComponent
+  | CalendarViewComponent
+  | HeatmapComponent
+  | TriggerProposalComponent
+  | AnnotatedTextComponent
+  | DiffComponent
+  | TranscriptComponent
+  | AnnotatedImageComponent
+  | SessionBriefComponent
+  | AgentTasksComponent
+  | DeferredListComponent
+  | DecisionMatrixComponent
+  | ProsConsComponent
+  | RankingComponent
+  | TimerComponent
+  | CounterComponent
+  | ScratchpadComponent
+  | NetworkComponent
+  | TreeComponent
+  | SankeyComponent
   | ReflexProposalComponent
 
 // ─── Artifact ────────────────────────────────────────────────────────

@@ -26,6 +26,7 @@ import {
   rowToSession,
 } from '../db.js'
 import { enqueueRun } from '../lib/runQueue.js'
+import * as log from '../lib/log.js'
 import { buildPrompt } from '../orchestrator/buildPrompt.js'
 import { persistArtifact } from '../orchestrator/persistArtifact.js'
 import {
@@ -199,8 +200,15 @@ export function runRoutes(config: Config, db: DB): Hono {
                 'processed',
                 ingest.id,
               )
+              log.ok(`run · artifact ${artifact.id} persisted for ${session.id}`)
               await send({ type: 'artifact.ready', artifact })
+              log.detail('sse', `artifact.ready ${artifact.id}`)
             } catch (e) {
+              log.warn(
+                `run · artifact persistence failed for ${session.id}: ${
+                  e instanceof Error ? e.message : String(e)
+                }`,
+              )
               await send({
                 type: 'run.error',
                 kind: 'unknown',
