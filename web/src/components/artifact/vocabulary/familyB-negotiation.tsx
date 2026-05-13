@@ -180,9 +180,12 @@ export function CDraftReview({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(body)
   const [sent, setSent] = useState(false)
+  // Preview must reflect the user's edits, not the original `body`. The
+  // payload sends `draft`, so showing highlights against `body` here
+  // would let the user approve/send text they never actually saw.
   const marked = useMemo(
-    () => markUncertainText(body, uncertain_spans),
-    [body, uncertain_spans],
+    () => markUncertainText(draft, uncertain_spans),
+    [draft, uncertain_spans],
   )
 
   const submit = (): void => {
