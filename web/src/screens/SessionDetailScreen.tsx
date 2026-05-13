@@ -6,17 +6,40 @@ import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
 import { api } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
+import { useConfirm } from '../store/useConfirm'
 
 export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
   const back = useAppStore((s) => s.back)
   const go = useAppStore((s) => s.go)
   const session = useAppStore((s) => s.sessions.find((s) => s.id === id))
+  const upsertSession = useAppStore((s) => s.upsertSession)
+  const confirm = useConfirm((s) => s.request)
 
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [ingests, setIngests] = useState<Ingest[]>([])
   const [attachedSources, setAttachedSources] = useState<Source[]>([])
   const [reflexes, setReflexes] = useState<Reflex[]>([])
   const [loading, setLoading] = useState(true)
+  const [restartFeedback, setRestartFeedback] = useState<string | null>(null)
+
+  const onRestartAgentThread = async (): Promise<void> => {
+    const ok = await confirm({
+      title: 'Restart agent thread?',
+      body:
+        "Your local history (artifacts, ingests, attached sources, reflexes) stays. The agent's managed-session memory for this thread is dropped; the next ingest will create a fresh managed session bound to the latest prompt + tools. Use this after running pnpm bootstrap-agent so existing sessions pick up the new contract.",
+      confirmLabel: 'Restart thread',
+    })
+    if (!ok) return
+    try {
+      const next = await api.restartAgentThread(id)
+      upsertSession(next)
+      setRestartFeedback('Agent thread reset. The next ingest will start fresh.')
+    } catch (e) {
+      setRestartFeedback(
+        e instanceof Error ? `Failed: ${e.message}` : 'Failed to restart agent thread.',
+      )
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -213,6 +236,60 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
             </div>
           </div>
         )}
+
+        {/* ── Restart agent thread ─────────────────────────────────
+            A managed Anthropic session is pinned to the agent's prompt
+            version at create-time. After `pnpm bootstrap-agent` pushes
+            an update, existing sessions stay on the old pin. This
+            action drops the pin; the next ingest creates a fresh
+            managed session on the latest agent version. */}
+        <div
+          style={{
+            marginTop: 20,
+            paddingTop: 14,
+            borderTop: '1px dashed var(--hairline)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
+        >
+          <button
+            type="button"
+            className="versions-link"
+            onClick={() => void onRestartAgentThread()}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            Restart agent thread
+          </button>
+          <p
+            className="t-caption"
+            style={{
+              color: 'var(--text-3)',
+              fontSize: 11,
+              lineHeight: 1.45,
+              margin: 0,
+            }}
+          >
+            Drops this session's managed-Anthropic-session memory. Local
+            history stays; the next ingest creates a fresh managed
+            session on the agent's current prompt + tools. Useful after
+            an agent prompt update.
+          </p>
+          {restartFeedback && (
+            <p
+              className="t-caption"
+              style={{
+                color: restartFeedback.startsWith('Failed')
+                  ? 'var(--red)'
+                  : 'var(--signal)',
+                fontSize: 11,
+                marginTop: 4,
+              }}
+            >
+              {restartFeedback}
+            </p>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '0 var(--screen-pad)' }}>

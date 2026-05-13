@@ -393,7 +393,7 @@ export function ProfileScreen(): JSX.Element {
           <NavRow
             icon="orbit"
             name="What the agent can render"
-            val="24 components"
+            val="54 components"
             onClick={() => go({ name: 'component-library' })}
           />
           <NavRow

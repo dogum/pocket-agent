@@ -12,9 +12,14 @@
 
 **Latest release:** [v0.1.0](../CHANGELOG.md#010----2026-05-10) — the substrate is shipped.
 
-**On `main` past v0.1.0:** Phase 21 — Sources, Reflexes, and Living Artifacts. The substrate evolved from a *reactive* turn-taker into an *ambient* agent. Sources (polled URLs, MCP, webhooks-as-schema, plus a built-in `fake_pulse` demo) emit Observations into per-source ring buffers; attached sources feed the agent's kickoff via `<recent_observations>`. The agent can propose **Reflexes** the user approves inline — once approved they fire automatically on matching observations, debounced and event-driven. Artifacts can declare `subscribes_to` to become **living** — they re-render in place when matching observations arrive, with a `LIVE` badge and version history. A per-session run queue (user > trigger > reflex > artifact-update) keeps all four entry points cooperating on the same managed session. The detail lives in [CHANGELOG.md](../CHANGELOG.md#unreleased).
+**On `main` past v0.1.0:**
 
-**What `main` looks like today:** scaffold + 21 phases of substrate + Observatory design system + 24 artifact components + cron triggers + session continuity + universal reply + session lifecycle + ambient sources / reflexes / living artifacts + OSS scaffolding (LICENSE, CI matrix, CodeQL, Dependabot). Onboarding plays a 5-step cinematic. The agent has memory across turns within a local session.
+- **Phase 21 — Sources, Reflexes, Living Artifacts.** The substrate evolved from a *reactive* turn-taker into an *ambient* agent. Sources (polled URLs, MCP, webhooks-as-schema, plus a built-in `fake_pulse` demo) emit Observations into per-source ring buffers; attached sources feed the agent's kickoff via `<recent_observations>`. The agent can propose **Reflexes** the user approves inline — once approved they fire automatically on matching observations, debounced and event-driven. Artifacts can declare `subscribes_to` to become **living** — they re-render in place when matching observations arrive, with a `LIVE` badge and version history. A per-session run queue (user > trigger > reflex > artifact-update) keeps all four entry points cooperating on the same managed session.
+- **Phase 22 — Vocabulary v2.** 30 new artifact component types across nine families: thinking (calculation, assumption_list, confidence_band, what_if), negotiation (counter_proposal, tradeoff_slider, draft_review), decision support (decision_matrix, pros_cons, ranking), orchestration (plan_card, checkpoint, decision_tree), time + cadence (schedule_picker, calendar_view, heatmap, trigger_proposal), markup (annotated_text, diff, transcript, annotated_image), memory (session_brief, agent_tasks, deferred_list), tools (scratchpad, timer, counter), structure (network, tree, sankey). The agent prompt now teaches three families — show the data / show the writing / show the thinking — instead of v1-vs-v2. Family F memory components (session_brief / agent_tasks / deferred_list) carry user-interaction prompts (correct / cancel / pursue) the renderer surfaces as inline buttons. Added a `Restart agent thread` affordance on Session Detail so existing sessions can pick up a newer agent prompt without losing local history (managed sessions are version-pinned at create time per the Anthropic docs).
+
+Detail in [CHANGELOG.md](../CHANGELOG.md#unreleased).
+
+**What `main` looks like today:** scaffold + 22 phases of substrate + Observatory design system + 54 artifact components + cron triggers + session continuity + universal reply + session lifecycle + ambient sources / reflexes / living artifacts + Vocabulary v2 thinking primitives + OSS scaffolding (LICENSE, CI matrix, CodeQL, Dependabot). Onboarding plays a 5-step cinematic. The agent has memory across turns within a local session.
 
 ---
 
@@ -75,6 +80,7 @@ pocket-agent/
 | 20 | **4 new component types** — `question_set`, `markdown`, `key_value_list`, `link_preview` |
 | OSS bootstrap | LICENSE, README, CONTRIBUTING, SECURITY, CHANGELOG, .github/ templates, CI matrix, Dependabot, CodeQL, social preview, app screenshot |
 | **21** | **Sources, Reflexes, Living Artifacts** — observation surface (polled_url + mcp skeleton + webhook schema + demo), agent-authored watchers (`reflex_proposal` → approve → fire), in-place artifact updates (`subscribes_to` + version history), per-session priority run queue, ambient SSE feed at `/api/events` |
+| **22** | **Vocabulary v2** — 30 new component types (thinking / negotiation / decision / orchestration / time / markup / memory / tools / structure), the "Showing the work" review screen at Profile → Help & reference, Family F latent interactions wired (`correction_prompt` / `cancel_prompt` / `pursue_prompt`), `Restart agent thread` affordance on Session Detail for picking up prompt updates without losing local history |
 
 ---
 

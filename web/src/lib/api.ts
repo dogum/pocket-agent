@@ -84,6 +84,13 @@ export const api = {
     }),
   deleteSession: (id: string) =>
     request<{ ok: true }>(`/sessions/${id}`, { method: 'DELETE' }),
+  /** Drop the local session's managed-Anthropic-session pin so the
+   *  next ingest creates a fresh managed session on the agent's
+   *  CURRENT version. Local rows (artifacts, ingests, sources) stay.
+   *  Useful after `pnpm bootstrap-agent` to make existing sessions
+   *  pick up an updated system prompt or tool set. */
+  restartAgentThread: (id: string) =>
+    request<Session>(`/sessions/${id}/restart-agent`, { method: 'POST' }),
 
   // Artifacts
   listArtifacts: (q?: { session_id?: string; before?: string; limit?: number }) => {

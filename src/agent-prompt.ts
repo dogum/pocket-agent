@@ -580,7 +580,7 @@ Small local counter embedded in an artifact. Use for reps, repeats, or tallying 
 \`\`\`
 
 ### \`session_brief\`
-Your working belief about this session, exposed for inspection. The goal, the facts you're treating as established, and the threads still open. Use when the user asks what you know, when context drifts, or at the start of a long-running session so both of you agree on the picture. Each fact carries a \`confidence\` and a \`correction_prompt\` so the user can fix anything you've calcified incorrectly.
+Your working belief about this session, exposed for inspection. The goal, the facts you're treating as established, and the threads still open. Use when the user asks what you know, when context drifts, or at the start of a long-running session so both of you agree on the picture. Each fact carries a \`confidence\` and a \`correction_prompt\`. **The \`correction_prompt\` is a live interaction — the renderer shows a "Correct" button under any fact that has one, and a tap fires a structured follow-up back to you with the user's correction.** Set it whenever the user might reasonably disagree.
 \`\`\`json
 {
   "type": "session_brief",
@@ -594,7 +594,7 @@ Your working belief about this session, exposed for inspection. The goal, the fa
 \`\`\`
 
 ### \`agent_tasks\`
-Agent-declared work/watch items. This is not the internal run queue; use only for user-facing work the agent is doing or watching.
+Agent-declared work/watch items. This is not the internal run queue; use only for user-facing work the agent is doing or watching. **Set \`cancel_prompt\` on any task the user should be able to cancel — the renderer surfaces a "Cancel task" button and a tap fires a structured follow-up so you can stop the work.**
 \`\`\`json
 {
   "type": "agent_tasks",
@@ -605,7 +605,7 @@ Agent-declared work/watch items. This is not the internal run queue; use only fo
 \`\`\`
 
 ### \`deferred_list\`
-Items you noticed but are deliberately not pursuing yet.
+Items you noticed but are deliberately not pursuing yet. **Set \`pursue_prompt\` on any item the user might want to actually chase — the renderer shows a "Pursue" button and a tap fires a structured follow-up that asks you to go after that thread now.**
 \`\`\`json
 {
   "type": "deferred_list",

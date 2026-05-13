@@ -143,5 +143,38 @@ export function sessionsRoutes(_config: Config, db: DB): Hono {
     return c.json({ ok: true })
   })
 
+  // Drop the managed-agent linkage so the next ingest creates a fresh
+  // managed session on the agent's CURRENT version. Local rows
+  // (artifacts, ingests, attached sources, briefings) all stay.
+  //
+  // Anthropic Managed Agents pin a session to the agent version that
+  // was current at session-create time (per managed-agents/sessions.md:
+  // "passing in the `agent` ID as a string starts the session with the
+  // latest agent version"). When the system prompt is later updated
+  // via `pnpm bootstrap-agent`, existing sessions remain on their
+  // original pin. This endpoint is the user-side reset: drop the
+  // managed-session pointer so the next run in this thread picks up
+  // the latest prompt + tools.
+  app.post('/:id/restart-agent', (c) => {
+    const id = c.req.param('id')
+    const existing = db
+      .prepare('SELECT * FROM sessions WHERE id = ?')
+      .get(id) as Parameters<typeof rowToSession>[0] | undefined
+    if (!existing) return c.json({ error: 'not_found' }, 404)
+
+    db.prepare(`
+      UPDATE sessions SET
+        managed_session_id = NULL,
+        run_status         = NULL,
+        updated_at         = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), id)
+
+    const row = db
+      .prepare('SELECT * FROM sessions WHERE id = ?')
+      .get(id) as Parameters<typeof rowToSession>[0]
+    return c.json(rowToSession(row))
+  })
+
   return app
 }

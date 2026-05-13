@@ -941,11 +941,11 @@ export function ArtifactComponentView({
     case 'annotated_image':
       return <CAnnotatedImage {...component} />
     case 'session_brief':
-      return <CSessionBrief {...component} />
+      return <CSessionBrief {...component} onInteraction={onInteraction} />
     case 'agent_tasks':
-      return <CAgentTasks {...component} />
+      return <CAgentTasks {...component} onInteraction={onInteraction} />
     case 'deferred_list':
-      return <CDeferredList {...component} />
+      return <CDeferredList {...component} onInteraction={onInteraction} />
     case 'decision_matrix':
       return <CDecisionMatrix {...component} />
     case 'pros_cons':

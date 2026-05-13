@@ -13,6 +13,9 @@ export type ArtifactInteractionKind =
   | 'counter.submit'
   | 'scratchpad.save'
   | 'decision_tree.submit'
+  | 'session_brief.correct'
+  | 'agent_tasks.cancel'
+  | 'deferred_list.pursue'
 
 export interface ArtifactInteractionPayload {
   kind: ArtifactInteractionKind

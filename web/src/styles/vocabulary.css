@@ -831,19 +831,56 @@
   gap: 8px;
 }
 .fact {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fact-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
-.fact .key,
-.fact .seen {
+.fact-row .key {
+  flex: 0 0 auto;
+  min-width: 84px;
   color: var(--text-3);
   font-size: 11px;
 }
-.fact .value {
+.fact-row .value {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--text-2);
   font-size: 12px;
+}
+.fact-row .seen {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.fact .correction {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border-left: 2px solid var(--signal);
+}
+.fact .correction textarea {
+  width: 100%;
+  background: var(--surface-1);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--sans);
+  font-size: var(--t-body-sm);
+  color: var(--text);
+  resize: vertical;
+}
+.fact .correction textarea:focus {
+  outline: none;
+  border-color: var(--signal);
 }
 .open-threads {
   margin-top: 10px;
@@ -879,6 +916,35 @@
   grid-template-columns: 26px minmax(0, 1fr);
   gap: 10px;
 }
+.deferred-item .body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.deferred-item .body strong { color: var(--text); }
+.deferred-item .body p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.deferred-item .body .mini-btn { align-self: flex-start; }
+
+/* Family F latent-interaction affordances — small badge for the
+   "Sent" / "Cancellation sent" / "Pursue sent" state once the user
+   has fired the interaction. */
+.c-session-brief .status.sent,
+.c-agent-tasks .status.sent,
+.c-deferred-list .status.sent {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--green);
+  text-transform: uppercase;
+}
+.c-agent-tasks .agent-task .body { display: flex; flex-direction: column; gap: 4px; }
+.c-agent-tasks .agent-task .body .mini-btn { align-self: flex-start; margin-top: 4px; }
 .c-timer,
 .c-counter,
 .c-scratchpad {

@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Phase 22: Vocabulary v2 (the agent's thinking voice)
+
+The component vocabulary jumps from 24 to 54. The new 30 give the agent the verbs it was previously missing — *show the math*, *list assumptions*, *show uncertainty*, *propose and let the user accept/modify/reject in parts*, *plan over time*, *checkpoint a process*, *embed a small tool*.
+
+- **30 new artifact component types across 9 families:**
+  - *Thinking transparency* — `calculation`, `assumption_list`, `confidence_band`, `what_if`
+  - *Negotiation* — `counter_proposal`, `tradeoff_slider`, `draft_review`
+  - *Decision support* — `decision_matrix`, `pros_cons`, `ranking`
+  - *Orchestration* — `plan_card`, `checkpoint`, `decision_tree`
+  - *Time + cadence* — `schedule_picker`, `calendar_view`, `heatmap`, `trigger_proposal`
+  - *Markup* — `annotated_text`, `diff`, `transcript`, `annotated_image`
+  - *Agent memory* — `session_brief`, `agent_tasks`, `deferred_list`
+  - *Embedded tools* — `scratchpad`, `timer`, `counter`
+  - *Structure* — `network`, `tree`, `sankey`
+- **Family F latent interactions wired.** `session_brief.facts[].correction_prompt`, `agent_tasks.tasks[].cancel_prompt`, and `deferred_list.items[].pursue_prompt` are now live: the renderer surfaces a small "Correct" / "Cancel task" / "Pursue" button whenever the prompt is set, and a tap dispatches a structured follow-up to the agent via the existing interaction pipeline.
+- **`trigger_proposal` → real triggers.** Approving a `trigger_proposal` calls `/api/sessions/:id/triggers` directly, creating the cron-style trigger. The user doesn't have to leave the artifact to wire it up.
+- **Restart agent thread affordance.** New `POST /api/sessions/:id/restart-agent` route + a "Restart agent thread" action on Session Detail. Anthropic managed sessions are version-pinned to the agent's prompt at session-create time (per their docs); after `pnpm bootstrap-agent` pushes a new prompt, existing sessions stay on the old pin. The new affordance drops the managed-session pointer so the next ingest creates a fresh one on the latest prompt — local history (artifacts, ingests, sources, reflexes) stays intact.
+- **Agent prompt rebuilt around three families** (show the data / show the writing / show the thinking) instead of "v1 vs v2". New routing rules ("show the math", "list assumptions", "show your confidence", "accept/modify/reject", …) and two new top-level rules: reach for the thinking vocabulary when asked to think, and never apologize for the vocabulary.
+- **"Showing the work" review screen** at Profile → Help & reference. Per-family fixture artifacts rendered through the production `ArtifactCard` / `ArtifactDetail` paths, so every new component is inspectable without waiting for live agent output.
+- **Component renderers split by family** into `web/src/components/artifact/vocabulary/familyA-thinking.tsx` through `familyI-structure.tsx` so the main `ArtifactRenderer.tsx` stays readable.
+- **Parser smoke test** at `pnpm smoke:parser` — verifies the v2 thinking trio (calculation + assumption_list + confidence_band) parses with fields intact, captured v1 artifacts with inner markdown fences still parse, and unknown component types still reject.
+- **Shared interaction pipeline.** `web/src/lib/artifactInteractions.ts` defines a typed payload shape; every interactive v2 component funnels submits back to the same managed session via the existing run queue — no parallel agent execution paths.
+
 ### Added — Phase 21: Sources, Reflexes, Living Artifacts (the ambient agent)
 
 The substrate evolves from a reactive turn-taker into an ambient agent.
