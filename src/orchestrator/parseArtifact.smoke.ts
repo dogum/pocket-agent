@@ -186,6 +186,47 @@ if (v2.ok) {
   }
 }
 
+// ── 3b. Multi-fence response — fenced artifact PLUS a trailing
+//        fenced note (Codex PR #10 follow-up). The greedy fence
+//        regex would span from the first opener to the LAST closer,
+//        producing a non-JSON candidate and falling to brace-scan,
+//        which would then trip on a leading `{draft}` in prose. The
+//        strategy-A first-fence path must catch the artifact cleanly.
+const multiFenceWithTrailingNote = `Here is the {draft} you asked for:
+
+\`\`\`json
+${JSON.stringify({
+  header: {
+    label: 'NOTE',
+    title: 'Multi-fence response with trailing note',
+    timestamp_display: 'Just now',
+  },
+  priority: 'normal',
+  notify: false,
+  components: [{ type: 'paragraph', text: 'Artifact body.' }],
+})}
+\`\`\`
+
+A passing note for the reviewer:
+
+\`\`\`
+random fenced content that should not be picked up
+\`\`\`
+`
+
+const multiFence = parseArtifact(multiFenceWithTrailingNote)
+assert.equal(
+  multiFence.ok,
+  true,
+  multiFence.ok
+    ? undefined
+    : `multi-fence with trailing note should parse to the FIRST fenced artifact, got: ${multiFence.error}`,
+)
+if (multiFence.ok) {
+  assert.equal(multiFence.draft.header.title, 'Multi-fence response with trailing note')
+  assert.equal(multiFence.draft.components.length, 1)
+}
+
 // ── 3. Prose-wrapped fenced artifact (Codex PR #10 regression) ──────
 // A leading {draft}-shaped brace in prose must NOT win over the real
 // fenced JSON that follows. The fence-aware extractor catches this
@@ -241,5 +282,6 @@ console.log(
   '\n  ✓ captured v1 artifact with inner markdown fence parses',
   '\n  ✓ v2 thinking trio (calculation + assumption_list + confidence_band) parses with fields intact',
   '\n  ✓ prose-wrapped fenced artifact with stray {brace} in prose still parses',
+  '\n  ✓ multi-fence response (artifact + trailing fenced note) picks the FIRST fenced artifact',
   '\n  ✓ unknown component types still reject',
 )

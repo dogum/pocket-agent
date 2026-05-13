@@ -114,50 +114,61 @@ const VALID_ACTION_TYPES = new Set([
 ])
 
 /** Pull a JSON object out of a string that might be wrapped in fences,
- *  preceded by prose, followed by a trailing comment, or contain inner
- *  markdown fences inside a `markdown` component's content.
+ *  preceded by prose, followed by a trailing fenced note, or contain
+ *  inner markdown fences inside a `markdown` component's content.
  *
- *  Strategy (in order):
- *    1. If the text contains BOTH an opening ``` and a closing ```,
- *       extract everything between the FIRST opening fence and the
- *       LAST closing fence. This handles:
- *         • prose + fence + prose (Codex's case — leading `{draft}` in
- *           prose won't trip the brace scanner because the fence path
- *           wins first)
- *         • a fenced artifact whose `markdown` component contains
- *           inner ``` fences (the greedy match reaches the OUTER
- *           closer, not the inner one)
- *       Only return this candidate if it looks like a JSON object
- *       (starts with `{`, ends with `}`); otherwise fall through.
- *    2. Brace-scan the whole text — count balanced `{...}` while
- *       tracking string boundaries so braces inside JSON strings are
- *       ignored. */
+ *  We try three strategies in order and accept the first candidate that
+ *  parses as a JSON object:
+ *
+ *    A. Non-greedy first-fence: ``` … first matching ``` →
+ *       picks the FIRST fenced block in the message. Handles the common
+ *       case of `prose + ```json …``` + trailing prose or trailing
+ *       fenced notes (without over-reaching to the trailing fence).
+ *
+ *    B. Greedy first-fence: ``` … LAST ``` →
+ *       picks everything from the first opener to the last closer.
+ *       This is necessary when the artifact itself contains a `markdown`
+ *       component whose content has inner ``` fences — Strategy A's
+ *       first-close would truncate inside the markdown.
+ *
+ *    C. Brace scan over the whole text — counts balanced `{...}`
+ *       while tracking string boundaries. Last resort when the response
+ *       has no fence at all (a raw JSON message). */
 export function extractJson(text: string): string | null {
   const trimmed = text.trim()
 
-  // ── 1. Fence-aware extraction ──────────────────────────────────
-  // Match the FIRST opening ``` (with optional `json` marker) up to
-  // the LAST closing ```. Greedy `[\s\S]*` reaches the outer closer
-  // even if the artifact contains inner markdown fences.
-  const fence = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/)
-  const fallbackFence = trimmed.match(/```(?:json)?\s*\n?([\s\S]*)\n?\s*```/)
-  for (const m of [fence, fallbackFence]) {
-    if (!m) continue
-    const candidate = m[1].trim()
-    if (candidate.startsWith('{') && candidate.endsWith('}')) {
-      return candidate
-    }
+  for (const candidate of [
+    firstFenceCandidate(trimmed),
+    greedyFenceCandidate(trimmed),
+    braceScan(trimmed),
+  ]) {
+    if (candidate && isJsonObjectCandidate(candidate)) return candidate
   }
 
-  // ── 2. Brace scan ──────────────────────────────────────────────
-  // Scan for a balanced top-level object, ignoring braces inside
-  // JSON string values.
+  return null
+}
+
+/** Strategy A: ``` … FIRST closing ``` (non-greedy). */
+function firstFenceCandidate(text: string): string | null {
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
+  return m ? m[1].trim() : null
+}
+
+/** Strategy B: ``` … LAST closing ``` (greedy). Reaches the outer
+ *  closer when the artifact contains inner markdown fences. */
+function greedyFenceCandidate(text: string): string | null {
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*)\n?\s*```/)
+  return m ? m[1].trim() : null
+}
+
+/** Strategy C: balanced-brace scan over the whole text. */
+function braceScan(text: string): string | null {
   let depth = 0
   let start = -1
   let inStr = false
   let escape = false
-  for (let i = 0; i < trimmed.length; i++) {
-    const ch = trimmed[i]
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
     if (escape) {
       escape = false
       continue
@@ -177,11 +188,28 @@ export function extractJson(text: string): string | null {
     } else if (ch === '}') {
       depth--
       if (depth === 0 && start !== -1) {
-        return trimmed.slice(start, i + 1)
+        return text.slice(start, i + 1)
       }
     }
   }
   return null
+}
+
+/** Cheap structural check: starts with `{`, ends with `}`, and
+ *  JSON.parses to a non-array object. Used to validate each candidate
+ *  so we can fall through to the next strategy on a non-JSON match. */
+function isJsonObjectCandidate(candidate: string): boolean {
+  if (!candidate.startsWith('{') || !candidate.endsWith('}')) return false
+  try {
+    const parsed = JSON.parse(candidate)
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    )
+  } catch {
+    return false
+  }
 }
 
 export function parseArtifact(rawText: string): ParseResult {
