@@ -2,6 +2,8 @@ import { useRef, useState, type JSX } from 'react'
 
 import type { IngestType } from '@shared/index'
 import { Icon } from '../components/icons/Icon'
+import { EXPERIENCES } from '../design/experience'
+import { useResolvedExperience } from '../design/useExperience'
 import { useRunDispatcher } from '../hooks/useRunDispatcher'
 import { api } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
@@ -12,6 +14,8 @@ export function IngestSheet(): JSX.Element | null {
   const sessions = useAppStore((s) => s.sessions)
   const activeRunId = useAppStore((s) => s.activeRunId)
   const queuedCount = useAppStore((s) => s.queuedRuns.length)
+  const experience = useResolvedExperience()
+  const definition = EXPERIENCES[experience]
   const { dispatch } = useRunDispatcher()
 
   const [text, setText] = useState('')
@@ -109,7 +113,7 @@ export function IngestSheet(): JSX.Element | null {
               paddingBottom: 14,
             }}
           >
-            <div className="t-tag">Send to agent</div>
+            <div className="t-tag">{definition.captureVerb} to agent</div>
             <button className="icon-btn" onClick={close} type="button">
               <Icon name="close" size={14} />
             </button>
@@ -138,7 +142,7 @@ export function IngestSheet(): JSX.Element | null {
               />
               <div style={{ flex: 1 }}>
                 <div className="t-body-sm" style={{ color: 'var(--signal)' }}>
-                  Agent is working
+                  {definition.agentPresenceLabel}
                   {queuedCount > 0 && ` · ${queuedCount} queued`}
                 </div>
                 <div className="t-caption">
@@ -149,7 +153,7 @@ export function IngestSheet(): JSX.Element | null {
           )}
 
           <textarea
-            placeholder="Type, paste a link, or describe what you're sending…"
+            placeholder={capturePlaceholder(experience)}
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={5}
@@ -276,7 +280,7 @@ export function IngestSheet(): JSX.Element | null {
               onClick={submit}
               disabled={submitting}
             >
-              {submitting ? 'Sending…' : 'Send'}
+              {submitting ? progressiveVerb(definition.captureVerb) : definition.captureVerb}
             </button>
             <button
               className="btn outline"
@@ -285,14 +289,6 @@ export function IngestSheet(): JSX.Element | null {
               disabled={submitting}
             >
               <Icon name="file" size={14} /> Attach
-            </button>
-            <button
-              className="btn outline"
-              type="button"
-              disabled
-              title="Coming soon"
-            >
-              <Icon name="mic" size={14} /> Voice
             </button>
           </div>
         </div>
@@ -306,4 +302,38 @@ function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
   if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
   return `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`
+}
+
+function capturePlaceholder(experience: string): string {
+  switch (experience) {
+    case 'field_journal':
+      return 'Pour into the journal...'
+    case 'daily_edition':
+      return 'File to the wire...'
+    case 'observatory':
+      return 'Record an observation...'
+    case 'workbench':
+      return 'Create a workpiece...'
+    case 'quiet_atrium':
+      return 'Pin something to the room...'
+    default:
+      return "Type, paste a link, or describe what you're sending..."
+  }
+}
+
+function progressiveVerb(verb: string): string {
+  switch (verb) {
+    case 'File':
+      return 'Filing...'
+    case 'Pin':
+      return 'Pinning...'
+    case 'Pour':
+      return 'Pouring...'
+    case 'Record':
+      return 'Recording...'
+    case 'Dispatch':
+      return 'Dispatching...'
+    default:
+      return 'Sending...'
+  }
 }

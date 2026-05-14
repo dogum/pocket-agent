@@ -154,9 +154,17 @@ function flattenTree(
 ): Array<{ node: TreeComponent['nodes'][number]; depth: number }> {
   const byParent = new Map<string | undefined, TreeComponent['nodes']>()
   for (const node of nodes) {
-    const list = byParent.get(node.parent_id) ?? []
+    // `parent_id` is typed as `string | undefined` in the schema, but
+    // models commonly emit explicit `null` for root nodes. Normalize
+    // null → undefined so a root indexed under "null" can't render an
+    // empty tree.
+    const parentKey =
+      node.parent_id === null || node.parent_id === undefined
+        ? undefined
+        : node.parent_id
+    const list = byParent.get(parentKey) ?? []
     list.push(node)
-    byParent.set(node.parent_id, list)
+    byParent.set(parentKey, list)
   }
   const rows: Array<{ node: TreeComponent['nodes'][number]; depth: number }> = []
   const visit = (parentId: string | undefined, depth: number): void => {

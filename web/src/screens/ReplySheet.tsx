@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type JSX } from 'react'
 
 import type { Artifact } from '@shared/index'
 import { Icon } from '../components/icons/Icon'
+import { AgentPresence } from '../components/shell/AgentPresence'
 import { useRunDispatcher } from '../hooks/useRunDispatcher'
 import { api } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
@@ -134,35 +135,13 @@ export function ReplySheet({
           </div>
 
           {activeRunId && (
-            <div
-              className="card"
-              style={{
-                padding: '10px 14px',
-                marginBottom: 12,
-                background: 'var(--signal-dim)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: 'var(--signal)',
-                  boxShadow: '0 0 8px var(--signal)',
-                }}
+            <div style={{ marginBottom: 12 }}>
+              <AgentPresence
+                state="thinking"
+                detail="Your reply will run as soon as it finishes."
+                readout={queuedCount > 0 ? `+${queuedCount} queued` : undefined}
+                compact
               />
-              <div style={{ flex: 1 }}>
-                <div className="t-body-sm" style={{ color: 'var(--signal)' }}>
-                  Agent is working
-                  {queuedCount > 0 && ` · ${queuedCount} queued`}
-                </div>
-                <div className="t-caption">
-                  Your reply will run as soon as it finishes.
-                </div>
-              </div>
             </div>
           )}
 

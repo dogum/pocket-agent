@@ -29,7 +29,7 @@ The agent picks, arranges, and styles them around your context — a marathon tr
 
 Beyond user-driven turns, the agent can also act *ambiently*. Long-lived **Sources** (polled URLs, MCP servers, a built-in `fake_pulse` demo) emit observations between your inputs. Attach a source to a session and recent observations land in the agent's kickoff context. Approve a **reflex** and it fires automatically when its pattern matches. Mark an artifact as **living** with `subscribes_to` and it updates itself in place — with a pulsing LIVE badge and a version history sheet — as new observations arrive.
 
-The signature motion is the **scan-bar** — four agent states (ingesting, thinking, drafting, watching) that tell you what the agent is doing at any moment. The design system is called the **Observatory**: Cormorant serif, IBM Plex Mono data, signal teal `#5CB8B2` accent, near-black field, fonts and tokens defined as CSS variables.
+The signature motion is the **scan-bar** — four agent states (ingesting, thinking, drafting, watching) that tell you what the agent is doing at any moment. The default design system is **Observatory** (Cormorant serif, IBM Plex Mono data, signal teal `#5CB8B2` accent, near-black field, fonts and tokens defined as CSS variables) — and it's now one of five **Experience Modes** (Observatory · Field Journal · Daily Edition · Workbench · Quiet Atrium). Pick one in Profile or let Adaptive mode resolve based on how your artifacts accumulate. The agent loop, schema, parser, and data layer stay identical underneath; only the rendering and copy adapt.
 
 ## Quick start
 
