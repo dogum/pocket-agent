@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type JSX,
@@ -242,12 +243,26 @@ function useStoredString(
   key: string,
   initial: string,
 ): [string, Dispatch<SetStateAction<string>>] {
-  const [value, setValue] = useState(() => {
-    if (typeof window === 'undefined') return initial
-    return window.localStorage.getItem(storageKey(key)) ?? initial
-  })
+  const [value, setValue] = useState(() => readString(key, initial))
+  // Rehydrate when the storage key changes — otherwise the previous
+  // artifact's value would be retained AND immediately overwritten
+  // into the new key by the write effect, mixing state across slots
+  // when the component instance is reused.
+  const keyRef = useRef(key)
+  useEffect(() => {
+    if (keyRef.current === key) return
+    keyRef.current = key
+    setValue(readString(key, initial))
+    // initial is intentionally not a dep — we only rehydrate on key change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // Skip the write that fires immediately after a key swap; the
+    // value we'd write is the OLD key's value (not yet replaced by
+    // readString's effect above), and re-persisting it under the new
+    // key is exactly the leak we're protecting against.
+    if (keyRef.current !== key) return
     window.localStorage.setItem(storageKey(key), value)
   }, [key, value])
   return [value, setValue]
@@ -257,18 +272,33 @@ function useStoredNumber(
   key: string,
   initial: number,
 ): [number, Dispatch<SetStateAction<number>>] {
-  const [value, setValue] = useState(() => {
-    if (typeof window === 'undefined') return initial
-    const raw = window.localStorage.getItem(storageKey(key))
-    if (raw === null) return initial
-    const parsed = Number(raw)
-    return Number.isFinite(parsed) ? parsed : initial
-  })
+  const [value, setValue] = useState(() => readNumber(key, initial))
+  const keyRef = useRef(key)
+  useEffect(() => {
+    if (keyRef.current === key) return
+    keyRef.current = key
+    setValue(readNumber(key, initial))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (keyRef.current !== key) return
     window.localStorage.setItem(storageKey(key), String(value))
   }, [key, value])
   return [value, setValue]
+}
+
+function readString(key: string, initial: string): string {
+  if (typeof window === 'undefined') return initial
+  return window.localStorage.getItem(storageKey(key)) ?? initial
+}
+
+function readNumber(key: string, initial: number): number {
+  if (typeof window === 'undefined') return initial
+  const raw = window.localStorage.getItem(storageKey(key))
+  if (raw === null) return initial
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : initial
 }
 
 function formatSeconds(total: number): string {
