@@ -244,25 +244,29 @@ function useStoredString(
   initial: string,
 ): [string, Dispatch<SetStateAction<string>>] {
   const [value, setValue] = useState(() => readString(key, initial))
-  // Rehydrate when the storage key changes — otherwise the previous
-  // artifact's value would be retained AND immediately overwritten
-  // into the new key by the write effect, mixing state across slots
-  // when the component instance is reused.
+  // Track the key we last persisted under. Critical: only rotate this ref
+  // INSIDE the write effect, after deciding whether to skip — if we rotate
+  // it early (e.g. inside the rehydrate effect) the write effect runs in
+  // the same commit, sees the new key, and persists the OLD value under
+  // the NEW key before the rehydration render lands. That's the leak we
+  // are protecting against.
   const keyRef = useRef(key)
   useEffect(() => {
     if (keyRef.current === key) return
-    keyRef.current = key
     setValue(readString(key, initial))
     // initial is intentionally not a dep — we only rehydrate on key change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // Skip the write that fires immediately after a key swap; the
-    // value we'd write is the OLD key's value (not yet replaced by
-    // readString's effect above), and re-persisting it under the new
-    // key is exactly the leak we're protecting against.
-    if (keyRef.current !== key) return
+    // First post-swap commit: keyRef still points at the OLD key, value
+    // still holds the OLD key's content. Skip the write and rotate the
+    // ref so the next commit (which will carry the rehydrated value)
+    // persists correctly under the new key.
+    if (keyRef.current !== key) {
+      keyRef.current = key
+      return
+    }
     window.localStorage.setItem(storageKey(key), value)
   }, [key, value])
   return [value, setValue]
@@ -276,13 +280,15 @@ function useStoredNumber(
   const keyRef = useRef(key)
   useEffect(() => {
     if (keyRef.current === key) return
-    keyRef.current = key
     setValue(readNumber(key, initial))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (keyRef.current !== key) return
+    if (keyRef.current !== key) {
+      keyRef.current = key
+      return
+    }
     window.localStorage.setItem(storageKey(key), String(value))
   }, [key, value])
   return [value, setValue]
