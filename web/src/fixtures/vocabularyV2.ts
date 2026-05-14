@@ -70,6 +70,29 @@ export const vocabularyV2Artifacts = [
           { id: 'ratio', label: 'Projected AC ratio', value: '1.24', color: 'green' },
           { id: 'race', label: 'Race target impact', value: 'Low' },
         ],
+        scenarios: [
+          {
+            input_values: { thursday: '45 min Z2', saturday: 90 },
+            outputs: [
+              { id: 'ratio', label: 'Projected AC ratio', value: '1.24', color: 'green' },
+              { id: 'race', label: 'Race target impact', value: 'Low' },
+            ],
+          },
+          {
+            input_values: { thursday: 'Intervals', saturday: 120 },
+            outputs: [
+              { id: 'ratio', label: 'Projected AC ratio', value: '1.42', color: 'red' },
+              { id: 'race', label: 'Race target impact', value: 'High risk' },
+            ],
+          },
+          {
+            input_values: { thursday: 'Rest', saturday: 60 },
+            outputs: [
+              { id: 'ratio', label: 'Projected AC ratio', value: '1.15', color: 'green' },
+              { id: 'race', label: 'Race target impact', value: 'Very low' },
+            ],
+          },
+        ],
       },
       {
         type: 'assumption_list',
@@ -131,16 +154,20 @@ export const vocabularyV2Artifacts = [
             id: 'wed',
             label: 'Wednesday',
             proposal: 'Move intervals to an easy aerobic run.',
+            default: 'accept',
           },
           {
             id: 'thu',
             label: 'Thursday',
             proposal: 'Replace tempo work with 45 minutes of Z2.',
+            default: 'modify',
+            modify_placeholder: 'Keep tempo but shorten to 20 minutes?',
           },
           {
             id: 'sat',
             label: 'Saturday',
             proposal: 'Keep the long run, cap it at 90 minutes.',
+            default: 'accept',
           },
         ],
       },
@@ -202,6 +229,8 @@ export const vocabularyV2Artifacts = [
             ask: {
               id: 'availability',
               label: 'When could you fit the recovery session?',
+              kind: 'choice',
+              options: ['Morning', 'Lunch', 'Evening'],
               placeholder: 'morning, lunch, evening',
             },
           },
@@ -210,6 +239,10 @@ export const vocabularyV2Artifacts = [
             title: 'Saturday',
             detail: 'Long run with no fast finish.',
             state: 'pending',
+            on_done: {
+              type: 'follow_up',
+              prompt: 'Saturday long run completed. Ask how it felt and update the recovery plan.',
+            },
           },
         ],
       },
@@ -381,9 +414,9 @@ export const vocabularyV2Artifacts = [
       {
         type: 'annotated_image',
         caption: 'Route sketch with risk points.',
-        pins: [
-          { id: 'p1', x: 24, y: 38, label: 'Hill start', note: 'Keep this easy.', color: 'amber' },
-          { id: 'p2', x: 68, y: 64, label: 'Flat finish', note: 'No fast finish this week.', color: 'green' },
+        markers: [
+          { id: 'p1', x: 0.24, y: 0.38, label: 'Hill start', note: 'Keep this easy.', color: 'amber' },
+          { id: 'p2', x: 0.68, y: 0.64, label: 'Flat finish', note: 'No fast finish this week.', color: 'green' },
         ],
       },
     ],
@@ -525,14 +558,17 @@ export const vocabularyV2Artifacts = [
         value: 2,
         target: 6,
         unit: 'reps',
+        step: 1,
       },
       {
         type: 'scratchpad',
         id: 'notes',
         title: 'Run notes',
+        placeholder: 'Add soreness, fatigue, pace notes...',
         content: 'Legs felt heavy for the first mile.',
         shared_with_agent: true,
         privacy_note: 'Saved notes are sent back to the same session when submitted.',
+        submit_label: 'Save notes',
       },
     ],
   },
@@ -553,15 +589,15 @@ export const vocabularyV2Artifacts = [
       {
         type: 'network',
         nodes: [
-          { id: 'sleep', label: 'Sleep', color: 'cool' },
-          { id: 'load', label: 'Load', color: 'amber' },
-          { id: 'hr', label: 'HR', color: 'red' },
-          { id: 'plan', label: 'Plan', color: 'green' },
+          { id: 'sleep', label: 'Sleep', color: 'cool', x: 0.2, y: 0.35 },
+          { id: 'load', label: 'Load', color: 'amber', x: 0.5, y: 0.2, size: 'lg' },
+          { id: 'hr', label: 'HR', color: 'red', x: 0.5, y: 0.68 },
+          { id: 'plan', label: 'Plan', color: 'green', x: 0.82, y: 0.5 },
         ],
         edges: [
-          { from: 'sleep', to: 'hr', label: 'affects', kind: 'related' },
-          { from: 'load', to: 'hr', label: 'raises', kind: 'supports', color: 'amber' },
-          { from: 'hr', to: 'plan', label: 'guides', kind: 'depends_on' },
+          { source: 'sleep', target: 'hr', label: 'affects', kind: 'related' },
+          { source: 'load', target: 'hr', label: 'raises', kind: 'supports', color: 'amber', weight: 2 },
+          { source: 'hr', target: 'plan', label: 'guides', kind: 'depends_on' },
         ],
       },
       {
@@ -584,9 +620,9 @@ export const vocabularyV2Artifacts = [
           { id: 'recovery', label: 'Recovery' },
         ],
         flows: [
-          { from: 'time', to: 'run', value: 7, label: 'hours', color: 'signal' },
-          { from: 'time', to: 'strength', value: 2, label: 'hours', color: 'cool' },
-          { from: 'time', to: 'recovery', value: 3, label: 'hours', color: 'green' },
+          { source: 'time', target: 'run', value: 7, label: 'hours', color: 'signal' },
+          { source: 'time', target: 'strength', value: 2, label: 'hours', color: 'cool' },
+          { source: 'time', target: 'recovery', value: 3, label: 'hours', color: 'green' },
         ],
       },
     ],

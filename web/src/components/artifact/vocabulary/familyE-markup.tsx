@@ -78,17 +78,30 @@ export function CTranscript({
 export function CAnnotatedImage({
   url,
   caption,
-  pins,
+  pins = [],
+  markers = [],
 }: AnnotatedImageComponent): JSX.Element {
+  const points =
+    pins.length > 0
+      ? pins
+      : markers.map((marker) => ({
+          id: marker.id,
+          x: marker.x,
+          y: marker.y,
+          label: marker.label ?? marker.id,
+          note: marker.note,
+          color: marker.color,
+        }))
+
   return (
     <div className="c-annotated-image">
       <div className="image-stage">
         {url ? <img src={url} alt={caption ?? ''} /> : <div className="placeholder" />}
-        {pins.map((pin, index) => (
+        {points.map((pin, index) => (
           <span
             className={'pin' + toneClass(pin.color)}
             key={pin.id}
-            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+            style={{ left: pct(pin.x), top: pct(pin.y) }}
             title={pin.note}
           >
             {index + 1}
@@ -97,7 +110,7 @@ export function CAnnotatedImage({
       </div>
       {caption && <p className="caption">{caption}</p>}
       <div className="pin-legend">
-        {pins.map((pin, index) => (
+        {points.map((pin, index) => (
           <div key={pin.id}>
             <span>{index + 1}</span>
             <strong>{pin.label}</strong>
@@ -107,6 +120,11 @@ export function CAnnotatedImage({
       </div>
     </div>
   )
+}
+
+function pct(value: number): string {
+  const n = Number.isFinite(value) ? value : 0
+  return `${n >= 0 && n <= 1 ? n * 100 : n}%`
 }
 
 function markAnnotatedText(

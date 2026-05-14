@@ -128,11 +128,12 @@ function componentToMarkdown(c: ArtifactComponent): string {
       const steps = c.steps
         .map((step, i) => {
           const expr = step.expression ? ` — \`${step.expression}\`` : ''
-          return `${i + 1}. ${step.label}${expr}: **${step.value}**`
+          const unit = step.unit ? ` ${step.unit}` : ''
+          return `${i + 1}. ${step.label}${expr}: **${step.value}${unit}**`
         })
         .join('\n')
       const result = c.result
-        ? `\n\n**${c.result.label}:** ${c.result.value}`
+        ? `\n\n**${c.result.label}:** ${c.result.value}${c.result.unit ? ` ${c.result.unit}` : ''}`
         : ''
       return title + steps + result
     }
@@ -149,10 +150,14 @@ function componentToMarkdown(c: ArtifactComponent): string {
       const outputs = c.outputs
         .map((output) => `- **${output.label}:** ${output.value}`)
         .join('\n')
+      const scenarios = c.scenarios?.length
+        ? `Precomputed scenarios: ${c.scenarios.length}`
+        : ''
       return [
         c.label ? `**${c.label}**` : '**What-if scenario**',
         inputs ? `Inputs:\n${inputs}` : '',
         outputs ? `Outputs:\n${outputs}` : '',
+        scenarios,
       ]
         .filter(Boolean)
         .join('\n\n')
@@ -180,13 +185,14 @@ function componentToMarkdown(c: ArtifactComponent): string {
         c.segments
           .map((segment) => {
             const state = segment.state ? ` — ${segment.state}` : ''
+            const def = segment.default ? ` _(default: ${segment.default})_` : ''
             const modified = segment.modified_text
               ? `\n  Modified: ${segment.modified_text}`
               : ''
             const rejected = segment.reject_reason
               ? `\n  Reject reason: ${segment.reject_reason}`
               : ''
-            return `- **${segment.label}:** ${segment.proposal}${state}${modified}${rejected}`
+            return `- **${segment.label}:** ${segment.proposal}${state}${def}${modified}${rejected}`
           })
           .join('\n'),
       ]
@@ -222,7 +228,8 @@ function componentToMarkdown(c: ArtifactComponent): string {
           .map((step, i) => {
             const detail = step.detail ? ` — ${step.detail}` : ''
             const ask = step.ask ? `\n  Ask: ${step.ask.label}` : ''
-            return `${i + 1}. **${step.title}** (${step.state})${detail}${ask}`
+            const done = step.on_done ? `\n  On done: ${step.on_done.prompt}` : ''
+            return `${i + 1}. **${step.title}** (${step.state})${detail}${ask}${done}`
           })
           .join('\n'),
       ]
@@ -343,7 +350,17 @@ function componentToMarkdown(c: ArtifactComponent): string {
         .join('\n\n')
     case 'annotated_image': {
       const image = c.url ? `![${c.caption ?? 'annotated image'}](${c.url})` : '*[annotated image]*'
-      const pins = c.pins
+      const points =
+        c.pins ??
+        c.markers?.map((marker) => ({
+          id: marker.id,
+          x: marker.x,
+          y: marker.y,
+          label: marker.label ?? marker.id,
+          note: marker.note,
+        })) ??
+        []
+      const pins = points
         .map((pin) => `- **${pin.label}** (${pin.x}, ${pin.y})${pin.note ? ` — ${pin.note}` : ''}`)
         .join('\n')
       return [image, c.caption ?? '', pins ? `Pins:\n${pins}` : '']
@@ -435,7 +452,11 @@ function componentToMarkdown(c: ArtifactComponent): string {
         'Nodes: ' + c.nodes.map((node) => node.label).join(', '),
         'Edges:\n' +
           c.edges
-            .map((edge) => `- ${edge.from} → ${edge.to}${edge.label ? ` — ${edge.label}` : ''}`)
+            .map((edge) => {
+              const from = edge.from ?? edge.source ?? '?'
+              const to = edge.to ?? edge.target ?? '?'
+              return `- ${from} → ${to}${edge.label ? ` — ${edge.label}` : ''}`
+            })
             .join('\n'),
       ].join('\n\n')
     case 'tree':
@@ -448,8 +469,10 @@ function componentToMarkdown(c: ArtifactComponent): string {
     case 'sankey':
       return c.flows
         .map((flow) => {
-          const from = c.nodes.find((node) => node.id === flow.from)?.label ?? flow.from
-          const to = c.nodes.find((node) => node.id === flow.to)?.label ?? flow.to
+          const fromId = flow.from ?? flow.source ?? ''
+          const toId = flow.to ?? flow.target ?? ''
+          const from = c.nodes.find((node) => node.id === fromId)?.label ?? fromId
+          const to = c.nodes.find((node) => node.id === toId)?.label ?? toId
           return `- ${from} → ${to}: **${flow.value}**${flow.label ? ` ${flow.label}` : ''}`
         })
         .join('\n')

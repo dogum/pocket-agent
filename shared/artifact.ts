@@ -279,11 +279,13 @@ export interface CalculationComponent {
     label: string
     expression?: string
     value: string
+    unit?: string
     emphasis?: boolean
   }>
   result?: {
     label: string
     value: string
+    unit?: string
     color?: ThemeColor
   }
 }
@@ -307,6 +309,15 @@ export interface WhatIfComponent {
     label: string
     value: string
     color?: ThemeColor
+  }>
+  scenarios?: Array<{
+    input_values: Record<string, string | number>
+    outputs: Array<{
+      id: string
+      label?: string
+      value: string
+      color?: ThemeColor
+    }>
   }>
   submit_label?: string
 }
@@ -340,6 +351,8 @@ export interface CounterProposalComponent {
     id: string
     label: string
     proposal: string
+    default?: 'accept' | 'modify' | 'reject'
+    modify_placeholder?: string
     state?: 'pending' | 'accepted' | 'modified' | 'rejected'
     modified_text?: string
     reject_reason?: string
@@ -383,10 +396,14 @@ export interface PlanCardComponent {
     ask?: {
       id: string
       label: string
+      kind?: 'input' | 'choice' | 'confirm'
       placeholder?: string
+      options?: string[]
       value?: string
     }
+    on_done?: ComponentFollowUpAction
   }>
+  submit_label?: string
 }
 
 export interface DecisionTreeComponent {
@@ -507,12 +524,24 @@ export interface TranscriptComponent {
 export interface AnnotatedImageComponent {
   type: 'annotated_image'
   url?: string
+  aspect?: '16:9' | '4:3' | '1:1' | 'auto'
   caption?: string
-  pins: Array<{
+  pins?: Array<{
     id: string
     x: number
     y: number
     label: string
+    note?: string
+    color?: ThemeColor
+  }>
+  markers?: Array<{
+    id: string
+    x: number
+    y: number
+    kind?: 'pin' | 'box'
+    w?: number
+    h?: number
+    label?: string
     note?: string
     color?: ThemeColor
   }>
@@ -602,6 +631,7 @@ export interface CounterComponent {
   value: number
   target?: number
   unit?: string
+  step?: number
   submit_label?: string
 }
 
@@ -609,9 +639,11 @@ export interface ScratchpadComponent {
   type: 'scratchpad'
   id: string
   title?: string
+  placeholder?: string
   content: string
   shared_with_agent?: boolean
   privacy_note?: string
+  submit_label?: string
 }
 
 export interface NetworkComponent {
@@ -621,13 +653,19 @@ export interface NetworkComponent {
     label: string
     kind?: string
     color?: ThemeColor
+    size?: 'sm' | 'md' | 'lg'
+    x?: number
+    y?: number
   }>
   edges: Array<{
-    from: string
-    to: string
+    from?: string
+    to?: string
+    source?: string
+    target?: string
     label?: string
     kind?: 'supports' | 'contradicts' | 'cites' | 'depends_on' | 'related'
     color?: ThemeColor
+    weight?: number
   }>
 }
 
@@ -645,10 +683,12 @@ export interface TreeComponent {
 
 export interface SankeyComponent {
   type: 'sankey'
-  nodes: Array<{ id: string; label: string }>
+  nodes: Array<{ id: string; label: string; color?: ThemeColor }>
   flows: Array<{
-    from: string
-    to: string
+    from?: string
+    to?: string
+    source?: string
+    target?: string
     value: number
     label?: string
     color?: ThemeColor

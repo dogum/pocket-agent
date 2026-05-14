@@ -6,6 +6,8 @@ export type ArtifactInteractionKind =
   | 'tradeoff_slider.submit'
   | 'what_if.submit'
   | 'draft_review.submit'
+  | 'plan_card.submit'
+  | 'plan_card.step_done'
   | 'ranking.submit'
   | 'schedule_picker.pick'
   | 'trigger_proposal.approve'

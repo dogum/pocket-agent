@@ -1,7 +1,7 @@
 // =====================================================================
 // parseArtifact smoke test — invariants the parser must keep.
 //
-// Three scenarios, each one a regression risk:
+// Scenarios, each one a regression risk:
 //   1. A real captured v1 artifact (training-load shape) with an inner
 //      ```fence``` inside a `markdown` component. The parser must
 //      extract the OUTER artifact JSON, not the inner fence.
@@ -9,7 +9,8 @@
 //      `confidence_band` together — the three components the agent
 //      previously emitted "in protest". They must parse cleanly and
 //      retain their fields.
-//   3. An unknown component type must still reject.
+//   3. The full v2 inventory must parse, including compatibility aliases.
+//   4. An unknown component type must still reject.
 //
 // Run via `pnpm smoke:parser` (see package.json) or directly via tsx.
 // =====================================================================
@@ -186,6 +187,123 @@ if (v2.ok) {
   }
 }
 
+// ── 3. Full Vocabulary v2 inventory parses and normalizes aliases ───
+const allV2TypesArtifact = JSON.stringify({
+  header: {
+    label: 'REFERENCE',
+    title: 'All Vocabulary v2 component types',
+    timestamp_display: 'Just now',
+  },
+  priority: 'normal',
+  notify: false,
+  components: [
+    {
+      type: 'calculation',
+      label: 'Delta',
+      steps: [{ id: 's1', label: 'A minus B', expression: '42 - 31', value: '11', unit: 'mi' }],
+      result: { label: 'Difference', value: '11', unit: 'mi' },
+    },
+    {
+      type: 'what_if',
+      label: 'Mileage scenario',
+      inputs: [{ id: 'miles', label: 'Miles', kind: 'slider', value: 36, min: 20, max: 50 }],
+      outputs: [{ id: 'risk', label: 'Risk', value: 'medium' }],
+      scenarios: [
+        { input_values: { miles: 36 }, outputs: [{ id: 'risk', label: 'Risk', value: 'medium' }] },
+      ],
+    },
+    { type: 'assumption_list', items: [{ id: 'a1', text: 'Baseline week was normal.', confidence: 'medium' }] },
+    { type: 'confidence_band', label: 'Confidence', value: '68', unit: '%', low: 52, mid: 68, high: 82 },
+    {
+      type: 'counter_proposal',
+      segments: [
+        { id: 'seg1', label: 'Mileage', proposal: 'Cut to 36.', default: 'accept' },
+        { id: 'seg2', label: 'Intensity', proposal: 'One workout.', default: 'modify', modify_placeholder: 'Alternative?' },
+      ],
+    },
+    {
+      type: 'tradeoff_slider',
+      question: 'Recovery vs fitness?',
+      left: { label: 'Recovery' },
+      right: { label: 'Fitness' },
+      value: 35,
+    },
+    { type: 'draft_review', title: 'Note', body: 'Keep this unless sleep drops.', uncertain_spans: [{ id: 'u1', text: 'unless sleep drops' }] },
+    {
+      type: 'plan_card',
+      goal: 'Recover safely',
+      steps: [
+        { id: 'p1', title: 'Easy run', state: 'doing' },
+        {
+          id: 'p2',
+          title: 'Pick window',
+          state: 'pending',
+          ask: { id: 'window', label: 'Window?', kind: 'choice', options: ['AM', 'PM'] },
+          on_done: { type: 'follow_up', prompt: 'Step done.' },
+        },
+      ],
+    },
+    { type: 'decision_tree', question: 'Sore?', branches: [{ id: 'yes', choice: 'Yes', conclusion: 'Rest.' }] },
+    { type: 'checkpoint', stages: [{ id: 'c1', label: 'Detect', state: 'done' }] },
+    { type: 'schedule_picker', slots: [{ id: 'slot', date_label: 'Tomorrow', time_range: '7-8 AM' }] },
+    { type: 'calendar_view', days: [{ id: 'mon', name: 'Mon', number: '1', events: [{ id: 'e1', label: 'Easy', state: 'planned' }] }] },
+    { type: 'heatmap', values: [{ date: '2026-05-13', value: 2 }] },
+    { type: 'trigger_proposal', cadence_label: 'Every Sunday', cron: '0 7 * * 0', action: 'Review load.', alternatives: { label: 'Bad shape', cron: '0 8 * * 1' } },
+    { type: 'annotated_text', content: '42 miles vs 31 last week.', annotations: [{ id: 'ann', text: '42 miles', note: 'Current week' }] },
+    { type: 'diff', before: '42 again', after: '36 easy' },
+    { type: 'transcript', lines: [{ id: 'l1', time: '00:01', text: 'Heel hurt.', pinned: true }] },
+    { type: 'annotated_image', markers: [{ id: 'pin', x: 0.2, y: 0.3, label: 'Heel point' }] },
+    { type: 'session_brief', facts: [{ key: 'Goal', value: 'Stay healthy', confidence: 'high' }] },
+    { type: 'agent_tasks', tasks: [{ id: 'task', label: 'Watch mileage', state: 'scheduled' }] },
+    { type: 'deferred_list', items: [{ text: 'Shoe mileage', reason: 'Not load-bearing yet.' }] },
+    { type: 'decision_matrix', options: ['A', 'B'], criteria: [{ id: 'risk', label: 'Risk', weight: 1, scores: { A: 3, B: 8 } }] },
+    { type: 'pros_cons', pros: [{ text: 'Safer' }], cons: [{ text: 'Less specific' }] },
+    { type: 'ranking', items: [{ id: 'r1', label: 'Health' }, { id: 'r2', label: 'Speed' }] },
+    { type: 'timer', id: 'timer', label: 'Mobility', duration_seconds: 60 },
+    { type: 'counter', id: 'counter', label: 'Strides', value: 0, target: 6, step: 1 },
+    { type: 'scratchpad', id: 'pad', content: 'Notes', placeholder: 'Write notes...' },
+    {
+      type: 'network',
+      nodes: [{ id: 'load', label: 'Load', x: 0.2, y: 0.5 }, { id: 'risk', label: 'Risk', x: 0.8, y: 0.5 }],
+      edges: [{ source: 'load', target: 'risk', label: 'raises' }],
+    },
+    { type: 'tree', nodes: [{ id: 'root', label: 'Risk' }, { id: 'volume', parent_id: 'root', label: 'Volume' }] },
+    {
+      type: 'sankey',
+      nodes: [{ id: 'week', label: 'Week' }, { id: 'easy', label: 'Easy' }],
+      flows: [{ source: 'week', target: 'easy', value: 34, label: 'mi' }],
+    },
+  ],
+})
+
+const allV2 = parseArtifact(allV2TypesArtifact)
+assert.equal(allV2.ok, true, allV2.ok ? undefined : allV2.error)
+if (allV2.ok) {
+  assert.equal(allV2.draft.components.length, 30)
+  const trigger = allV2.draft.components.find((c) => c.type === 'trigger_proposal')
+  assert.equal(trigger?.type, 'trigger_proposal')
+  if (trigger?.type === 'trigger_proposal') {
+    assert.deepEqual(trigger.alternatives, [])
+  }
+  const image = allV2.draft.components.find((c) => c.type === 'annotated_image')
+  assert.equal(image?.type, 'annotated_image')
+  if (image?.type === 'annotated_image') {
+    assert.equal(image.pins?.[0]?.label, 'Heel point')
+  }
+  const network = allV2.draft.components.find((c) => c.type === 'network')
+  assert.equal(network?.type, 'network')
+  if (network?.type === 'network') {
+    assert.equal(network.edges[0].from, 'load')
+    assert.equal(network.edges[0].to, 'risk')
+  }
+  const sankey = allV2.draft.components.find((c) => c.type === 'sankey')
+  assert.equal(sankey?.type, 'sankey')
+  if (sankey?.type === 'sankey') {
+    assert.equal(sankey.flows[0].from, 'week')
+    assert.equal(sankey.flows[0].to, 'easy')
+  }
+}
+
 // ── 3b. Multi-fence response — fenced artifact PLUS a trailing
 //        fenced note (Codex PR #10 follow-up). The greedy fence
 //        regex would span from the first opener to the LAST closer,
@@ -281,6 +399,7 @@ console.log(
   'parser smoke passed:',
   '\n  ✓ captured v1 artifact with inner markdown fence parses',
   '\n  ✓ v2 thinking trio (calculation + assumption_list + confidence_band) parses with fields intact',
+  '\n  ✓ all 30 Vocabulary v2 component types parse, with alias normalizers intact',
   '\n  ✓ prose-wrapped fenced artifact with stray {brace} in prose still parses',
   '\n  ✓ multi-fence response (artifact + trailing fenced note) picks the FIRST fenced artifact',
   '\n  ✓ unknown component types still reject',

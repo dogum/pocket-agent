@@ -391,7 +391,7 @@ An estimate paired with the room around it. Use when you'd otherwise be tempted 
 \`\`\`
 
 ### \`what_if\`
-Lets the user adjust a few inputs and send the chosen scenario back. Outputs are static unless you have already calculated the displayed scenario.
+Lets the user adjust a few inputs and send the chosen scenario back. If you can cheaply precompute a few scenarios, include \`scenarios\`; the renderer will pick the nearest one locally as the user changes inputs. If not, provide static \`outputs\` for the default inputs and let the follow-up run do deeper recalculation.
 \`\`\`json
 {
   "type": "what_if",
@@ -401,6 +401,16 @@ Lets the user adjust a few inputs and send the chosen scenario back. Outputs are
   ],
   "outputs": [
     { "id": "risk", "label": "Projected risk", "value": "lower than this week", "color": "green" }
+  ],
+  "scenarios": [
+    {
+      "input_values": { "next_miles": 36 },
+      "outputs": [{ "id": "risk", "label": "Projected risk", "value": "lower than this week", "color": "green" }]
+    },
+    {
+      "input_values": { "next_miles": 44 },
+      "outputs": [{ "id": "risk", "label": "Projected risk", "value": "still elevated", "color": "amber" }]
+    }
   ],
   "submit_label": "Use this scenario"
 }
@@ -413,8 +423,8 @@ A proposal the user can shape one segment at a time — accept this, modify that
   "type": "counter_proposal",
   "intro": "Accept, modify, or reject each training adjustment.",
   "segments": [
-    { "id": "mileage", "label": "Mileage", "proposal": "Cut next week to 34-36 miles." },
-    { "id": "intensity", "label": "Intensity", "proposal": "Keep only one quality workout." }
+    { "id": "mileage", "label": "Mileage", "proposal": "Cut next week to 34-36 miles.", "default": "accept" },
+    { "id": "intensity", "label": "Intensity", "proposal": "Keep only one quality workout.", "default": "modify", "modify_placeholder": "Keep two workouts but shorten the second?" }
   ],
   "submit_label": "Submit decisions"
 }
@@ -487,9 +497,10 @@ An ordered plan with state on each step — what's done, what's in flight, what'
   "goal": "Absorb the mileage jump without compounding risk.",
   "steps": [
     { "id": "recover", "title": "Next 48 hours", "detail": "Keep runs easy and watch soreness.", "state": "doing" },
-    { "id": "cap", "title": "Next week", "detail": "Cap mileage around 34-36 unless all runs were easy.", "state": "pending" },
-    { "id": "recheck", "title": "After two runs", "detail": "Reassess soreness and fatigue.", "state": "pending" }
-  ]
+    { "id": "cap", "title": "Next week", "detail": "Cap mileage around 34-36 unless all runs were easy.", "state": "pending", "ask": { "id": "window", "label": "When can you fit the recovery run?", "kind": "choice", "options": ["Morning", "Lunch", "Evening"] } },
+    { "id": "recheck", "title": "After two runs", "detail": "Reassess soreness and fatigue.", "state": "pending", "on_done": { "type": "follow_up", "prompt": "The user completed the recheck step. Ask what changed and update the plan." } }
+  ],
+  "submit_label": "Submit plan answers"
 }
 \`\`\`
 
@@ -546,9 +557,11 @@ Editable note surface inside the artifact. Use only when the artifact should beh
   "type": "scratchpad",
   "id": "run-notes",
   "title": "Run context notes",
+  "placeholder": "Add soreness, workout intensity, and long-run split...",
   "content": "Add soreness, workout intensity, and long-run split here.",
   "shared_with_agent": true,
-  "privacy_note": "When saved, this note is sent back to the same session."
+  "privacy_note": "When saved, this note is sent back to the same session.",
+  "submit_label": "Save notes"
 }
 \`\`\`
 
@@ -575,6 +588,7 @@ Small local counter embedded in an artifact. Use for reps, repeats, or tallying 
   "value": 0,
   "target": 6,
   "unit": "reps",
+  "step": 1,
   "submit_label": "Submit count"
 }
 \`\`\`
@@ -693,8 +707,8 @@ Relationship graph. Use sparingly when relationships are the point.
 \`\`\`json
 {
   "type": "network",
-  "nodes": [{ "id": "mileage", "label": "Mileage", "color": "amber" }, { "id": "risk", "label": "Risk" }],
-  "edges": [{ "from": "mileage", "to": "risk", "label": "raises", "kind": "supports" }]
+  "nodes": [{ "id": "mileage", "label": "Mileage", "color": "amber", "x": 0.25, "y": 0.5 }, { "id": "risk", "label": "Risk", "x": 0.75, "y": 0.5 }],
+  "edges": [{ "source": "mileage", "target": "risk", "label": "raises", "kind": "supports" }]
 }
 \`\`\`
 
@@ -718,8 +732,8 @@ Simple flow of time, money, energy, attention, or volume.
   "type": "sankey",
   "nodes": [{ "id": "week", "label": "Weekly load" }, { "id": "easy", "label": "Easy miles" }, { "id": "hard", "label": "Hard miles" }],
   "flows": [
-    { "from": "week", "to": "easy", "value": 34, "label": "miles", "color": "green" },
-    { "from": "week", "to": "hard", "value": 8, "label": "miles", "color": "amber" }
+    { "source": "week", "target": "easy", "value": 34, "label": "miles", "color": "green" },
+    { "source": "week", "target": "hard", "value": 8, "label": "miles", "color": "amber" }
   ]
 }
 \`\`\`
@@ -730,8 +744,8 @@ Image with pins/notes. Use only when the visual is the point.
 {
   "type": "annotated_image",
   "caption": "Route sketch with risk points.",
-  "pins": [
-    { "id": "p1", "x": 24, "y": 38, "label": "Hill start", "note": "Keep this easy.", "color": "amber" }
+  "markers": [
+    { "id": "p1", "x": 0.24, "y": 0.38, "label": "Hill start", "note": "Keep this easy.", "color": "amber" }
   ]
 }
 \`\`\`

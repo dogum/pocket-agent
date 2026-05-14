@@ -8,6 +8,9 @@ import type {
 import type { VocabularyRendererProps } from './types'
 
 type SegmentChoice = 'pending' | 'accepted' | 'modified' | 'rejected'
+type SegmentDefault = NonNullable<
+  CounterProposalComponent['segments'][number]['default']
+>
 
 export function CCounterProposal({
   intro,
@@ -17,7 +20,10 @@ export function CCounterProposal({
 }: CounterProposalComponent & VocabularyRendererProps): JSX.Element {
   const [choices, setChoices] = useState<Record<string, SegmentChoice>>(() =>
     Object.fromEntries(
-      segments.map((segment) => [segment.id, segment.state ?? 'pending']),
+      segments.map((segment) => [
+        segment.id,
+        segment.state ?? defaultChoice(segment.default),
+      ]),
     ),
   )
   const [modified, setModified] = useState<Record<string, string>>(() =>
@@ -38,6 +44,7 @@ export function CCounterProposal({
       label: segment.label,
       proposal: segment.proposal,
       state: choices[segment.id] ?? 'pending',
+      default: segment.default,
       modified_text: modified[segment.id] ?? '',
       reject_reason: reasons[segment.id] ?? '',
     }))
@@ -82,7 +89,9 @@ export function CCounterProposal({
             {choice === 'modified' && (
               <textarea
                 rows={2}
-                placeholder="What should this say instead?"
+                placeholder={
+                  segment.modify_placeholder ?? 'What should this say instead?'
+                }
                 value={modified[segment.id] ?? ''}
                 onChange={(e) =>
                   setModified((s) => ({
@@ -113,6 +122,19 @@ export function CCounterProposal({
       </button>
     </div>
   )
+}
+
+function defaultChoice(value?: SegmentDefault): SegmentChoice {
+  switch (value) {
+    case 'accept':
+      return 'accepted'
+    case 'modify':
+      return 'modified'
+    case 'reject':
+      return 'rejected'
+    default:
+      return 'pending'
+  }
 }
 
 export function CTradeoffSlider({

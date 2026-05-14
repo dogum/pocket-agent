@@ -877,6 +877,7 @@ export function safeHref(url: string): string | null {
 // ─── Dispatcher ──────────────────────────────────────────────────────
 export function ArtifactComponentView({
   component,
+  artifactId,
   onChecklistToggle,
   onQuestionSetSubmit,
   onInteraction,
@@ -884,6 +885,7 @@ export function ArtifactComponentView({
   onReflexDismiss,
 }: {
   component: ArtifactComponent
+  artifactId?: string
   onChecklistToggle?: (id: string) => void
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
@@ -954,7 +956,7 @@ export function ArtifactComponentView({
     case 'draft_review':
       return <CDraftReview {...component} onInteraction={onInteraction} />
     case 'plan_card':
-      return <CPlanCard {...component} />
+      return <CPlanCard {...component} onInteraction={onInteraction} />
     case 'decision_tree':
       return <CDecisionTree {...component} onInteraction={onInteraction} />
     case 'checkpoint':
@@ -988,11 +990,11 @@ export function ArtifactComponentView({
     case 'ranking':
       return <CRanking {...component} onInteraction={onInteraction} />
     case 'timer':
-      return <CTimer {...component} onInteraction={onInteraction} />
+      return <CTimer {...component} artifactId={artifactId} onInteraction={onInteraction} />
     case 'counter':
-      return <CCounter {...component} onInteraction={onInteraction} />
+      return <CCounter {...component} artifactId={artifactId} onInteraction={onInteraction} />
     case 'scratchpad':
-      return <CScratchpad {...component} onInteraction={onInteraction} />
+      return <CScratchpad {...component} artifactId={artifactId} onInteraction={onInteraction} />
     case 'network':
       return <CNetwork {...component} />
     case 'tree':
@@ -1054,7 +1056,7 @@ export function ArtifactCard({
       </div>
       {!dense &&
         artifact.components.map((c, i) => (
-          <ArtifactComponentView key={i} component={c} />
+          <ArtifactComponentView key={i} artifactId={artifact.id} component={c} />
         ))}
       {versionCount > 0 && (
         <div className="artifact-foot">
@@ -1142,6 +1144,7 @@ export function ArtifactDetail({
         {artifact.components.map((c, i) => (
           <ArtifactComponentView
             key={i}
+            artifactId={artifact.id}
             onReflexApprove={onReflexApprove}
             component={
               c.type === 'checklist'

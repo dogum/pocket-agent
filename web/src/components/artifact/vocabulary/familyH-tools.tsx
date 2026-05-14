@@ -1,4 +1,10 @@
-import { useEffect, useState, type JSX } from 'react'
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type JSX,
+  type SetStateAction,
+} from 'react'
 
 import type {
   CounterComponent,
@@ -8,6 +14,7 @@ import type {
 import type { VocabularyRendererProps } from './types'
 
 export function CTimer({
+  artifactId,
   id,
   label,
   duration_seconds,
@@ -16,7 +23,10 @@ export function CTimer({
   completion_prompt,
   onInteraction,
 }: TimerComponent & VocabularyRendererProps): JSX.Element {
-  const [elapsed, setElapsed] = useState(elapsed_seconds)
+  const [elapsed, setElapsed] = useStoredNumber(
+    scopedStorageKey(artifactId, 'timer', id, 'elapsed'),
+    elapsed_seconds,
+  )
   const [running, setRunning] = useState(false)
   const [completed, setCompleted] = useState(false)
   const duration = Math.max(0, duration_seconds)
@@ -35,26 +45,34 @@ export function CTimer({
     if (completed || mode !== 'countdown' || elapsed < duration || duration === 0) {
       return
     }
-    setRunning(false)
-    setCompleted(true)
-    if (completion_prompt) {
-      void onInteraction?.({
-        kind: 'timer.complete',
-        component_type: 'timer',
-        component_id: id,
-        payload: { id, label, duration_seconds: duration, completion_prompt },
-      })
-    }
+    complete()
   }, [
     completed,
-    completion_prompt,
     duration,
     elapsed,
-    id,
-    label,
     mode,
-    onInteraction,
   ])
+
+  function complete(): void {
+    setRunning(false)
+    setCompleted(true)
+    if (mode === 'countdown') {
+      setElapsed(duration)
+    }
+    void onInteraction?.({
+      kind: 'timer.complete',
+      component_type: 'timer',
+      component_id: id,
+      payload: {
+        id,
+        label,
+        mode,
+        duration_seconds: duration,
+        elapsed_seconds: mode === 'countdown' ? duration : elapsed,
+        completion_prompt,
+      },
+    })
+  }
 
   return (
     <div className="c-timer">
@@ -81,21 +99,34 @@ export function CTimer({
         >
           Reset
         </button>
+        <button
+          type="button"
+          className="mini-btn"
+          onClick={complete}
+          disabled={completed}
+        >
+          Done
+        </button>
       </div>
     </div>
   )
 }
 
 export function CCounter({
+  artifactId,
   id,
   label,
   value,
   target,
   unit,
+  step = 1,
   submit_label,
   onInteraction,
 }: CounterComponent & VocabularyRendererProps): JSX.Element {
-  const [current, setCurrent] = useState(value)
+  const [current, setCurrent] = useStoredNumber(
+    scopedStorageKey(artifactId, 'counter', id, 'value'),
+    value,
+  )
   const [sent, setSent] = useState(false)
   const pct = target ? Math.max(0, Math.min(100, (current / target) * 100)) : 0
 
@@ -128,14 +159,14 @@ export function CCounter({
         <button
           type="button"
           className="mini-btn"
-          onClick={() => setCurrent((n) => n - 1)}
+          onClick={() => setCurrent((n) => Math.max(0, n - step))}
         >
           -
         </button>
         <button
           type="button"
           className="mini-btn"
-          onClick={() => setCurrent((n) => n + 1)}
+          onClick={() => setCurrent((n) => n + step)}
         >
           +
         </button>
@@ -148,14 +179,20 @@ export function CCounter({
 }
 
 export function CScratchpad({
+  artifactId,
   id,
   title,
+  placeholder,
   content,
   shared_with_agent,
   privacy_note,
+  submit_label,
   onInteraction,
 }: ScratchpadComponent & VocabularyRendererProps): JSX.Element {
-  const [value, setValue] = useState(content)
+  const [value, setValue] = useStoredString(
+    scopedStorageKey(artifactId, 'scratchpad', id, 'content'),
+    content,
+  )
   const [sent, setSent] = useState(false)
 
   const submit = (): void => {
@@ -176,15 +213,62 @@ export function CScratchpad({
       </div>
       <textarea
         rows={5}
+        placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
       {privacy_note && <p className="privacy">{privacy_note}</p>}
       <button type="button" className="btn primary" onClick={submit}>
-        {sent ? 'Sent' : 'Save scratchpad'}
+        {sent ? 'Sent' : (submit_label ?? 'Save scratchpad')}
       </button>
     </div>
   )
+}
+
+function storageKey(key: string): string {
+  return `pocket-agent:vocabulary:${key}`
+}
+
+function scopedStorageKey(
+  artifactId: string | undefined,
+  kind: string,
+  componentId: string,
+  field: string,
+): string {
+  return `${artifactId ?? 'global'}:${kind}:${componentId}:${field}`
+}
+
+function useStoredString(
+  key: string,
+  initial: string,
+): [string, Dispatch<SetStateAction<string>>] {
+  const [value, setValue] = useState(() => {
+    if (typeof window === 'undefined') return initial
+    return window.localStorage.getItem(storageKey(key)) ?? initial
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(storageKey(key), value)
+  }, [key, value])
+  return [value, setValue]
+}
+
+function useStoredNumber(
+  key: string,
+  initial: number,
+): [number, Dispatch<SetStateAction<number>>] {
+  const [value, setValue] = useState(() => {
+    if (typeof window === 'undefined') return initial
+    const raw = window.localStorage.getItem(storageKey(key))
+    if (raw === null) return initial
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? parsed : initial
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(storageKey(key), String(value))
+  }, [key, value])
+  return [value, setValue]
 }
 
 function formatSeconds(total: number): string {

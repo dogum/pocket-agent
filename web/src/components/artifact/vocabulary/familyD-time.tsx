@@ -165,9 +165,9 @@ export function CTriggerProposal({
   const safeAlternatives = Array.isArray(alternatives) ? alternatives : []
   const options = [{ label: cadence_label, cron }, ...safeAlternatives]
   const [selectedCron, setSelectedCron] = useState(cron)
-  const [state, setState] = useState<'pending' | 'approving' | 'approved'>(
-    'pending',
-  )
+  const [state, setState] = useState<
+    'pending' | 'approving' | 'approved' | 'dismissed'
+  >('pending')
   const selected = options.find((option) => option.cron === selectedCron) ?? options[0]
 
   const approve = async (): Promise<void> => {
@@ -223,6 +223,16 @@ export function CTriggerProposal({
             ? 'Approving...'
             : 'Approve trigger'}
       </button>
+      {state === 'pending' && (
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => setState('dismissed')}
+        >
+          No thanks
+        </button>
+      )}
+      {state === 'dismissed' && <span className="status sent">Dismissed</span>}
     </div>
   )
 }

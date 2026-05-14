@@ -29,6 +29,17 @@ The component vocabulary jumps from 24 to 54. The new 30 give the agent the verb
 - **Parser smoke test** at `pnpm smoke:parser` — verifies the v2 thinking trio (calculation + assumption_list + confidence_band) parses with fields intact, captured v1 artifacts with inner markdown fences still parse, and unknown component types still reject.
 - **Shared interaction pipeline.** `web/src/lib/artifactInteractions.ts` defines a typed payload shape; every interactive v2 component funnels submits back to the same managed session via the existing run queue — no parallel agent execution paths.
 
+#### Phase 22 completion pass
+
+A round of polish closing the gap between schema and renderer:
+
+- **Schema enrichments (all optional, additive)** — `calculation.steps[].unit` + `result.unit`; `what_if.scenarios` for local interpolation between agent-precomputed points; `counter_proposal.segments[].default` + `modify_placeholder`; `plan_card.steps[].ask.kind`/`options` + `on_done` follow-up + top-level `submit_label`; `annotated_image.markers` (alias for `pins`, with both `pin` and `box` kinds); `counter.step`; `scratchpad.placeholder`.
+- **Parser alias normalizers** — `annotated_image.markers` → `pins`, network edge from/to aliases, `what_if.scenarios` defensively coerced. Legacy or drifted shapes degrade to the canonical schema instead of crashing the renderer.
+- **Per-id local state** for `timer` / `counter` / `scratchpad` so multiple instances of the same artifact-id-pattern don't share state.
+- **Smoke gains a 6th assertion** that all 30 v2 component types parse cleanly with the alias normalizers in effect.
+- **Fixtures expanded** to cover every v2 component in the "Showing the work" review screen.
+- **Agent prompt v8** — examples updated to the richer fields (precomputed `scenarios`, `counter_proposal` defaults, plan-step asks with choice kinds). Hash `d7eae07d55e1e60b`.
+
 ### Added — Phase 21: Sources, Reflexes, Living Artifacts (the ambient agent)
 
 The substrate evolves from a reactive turn-taker into an ambient agent.

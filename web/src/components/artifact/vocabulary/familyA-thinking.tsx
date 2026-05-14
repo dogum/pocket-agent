@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react'
+import { useMemo, useState, type JSX } from 'react'
 
 import type {
   AssumptionListComponent,
@@ -33,7 +33,10 @@ export function CCalculation({
                   <span className="expr">{step.expression}</span>
                 )}
               </div>
-              <span className="value">{step.value}</span>
+              <span className="value">
+                {step.value}
+                {step.unit ? ` ${step.unit}` : ''}
+              </span>
             </div>
           ))}
         </div>
@@ -41,7 +44,10 @@ export function CCalculation({
       {result && (
         <div className={'calc-result' + toneClass(result.color)}>
           <span>{result.label}</span>
-          <strong>{result.value}</strong>
+          <strong>
+            {result.value}
+            {result.unit ? ` ${result.unit}` : ''}
+          </strong>
         </div>
       )}
     </div>
@@ -52,6 +58,7 @@ export function CWhatIf({
   label,
   inputs,
   outputs,
+  scenarios = [],
   submit_label,
   onInteraction,
 }: WhatIfComponent & VocabularyRendererProps): JSX.Element {
@@ -59,13 +66,18 @@ export function CWhatIf({
     Object.fromEntries(inputs.map((input) => [input.id, input.value])),
   )
   const [sent, setSent] = useState(false)
+  const displayedOutputs = useMemo(
+    () => resolveScenarioOutputs({ inputs, values, fallback: outputs, scenarios }),
+    [inputs, outputs, scenarios, values],
+  )
+  const scenarioMatched = displayedOutputs !== outputs
 
   const submit = (): void => {
     setSent(true)
     void onInteraction?.({
       kind: 'what_if.submit',
       component_type: 'what_if',
-      payload: { inputs: values, outputs },
+      payload: { inputs: values, outputs: displayedOutputs },
     })
   }
 
@@ -131,18 +143,91 @@ export function CWhatIf({
         })}
       </div>
       <div className="what-if-outputs">
-        {outputs.map((output) => (
+        {displayedOutputs.map((output) => (
           <div key={output.id} className={'output' + toneClass(output.color)}>
             <span>{output.label}</span>
             <strong>{output.value}</strong>
           </div>
         ))}
       </div>
+      {scenarios.length > 0 && (
+        <div className="scenario-note">
+          {scenarioMatched ? 'Matched precomputed scenario' : 'Showing baseline outputs'}
+        </div>
+      )}
       <button type="button" className="btn primary" onClick={submit}>
         {sent ? 'Sent' : (submit_label ?? 'Send scenario')}
       </button>
     </div>
   )
+}
+
+function resolveScenarioOutputs(input: {
+  inputs: WhatIfComponent['inputs']
+  values: Record<string, string | number>
+  fallback: WhatIfComponent['outputs']
+  scenarios: NonNullable<WhatIfComponent['scenarios']>
+}): WhatIfComponent['outputs'] {
+  if (input.scenarios.length === 0) return input.fallback
+
+  let best:
+    | { distance: number; outputs: WhatIfComponent['outputs'] }
+    | null = null
+
+  for (const scenario of input.scenarios) {
+    if (!Array.isArray(scenario.outputs)) continue
+    const distance = scenarioDistance({
+      inputs: input.inputs,
+      values: input.values,
+      scenarioValues: scenario.input_values,
+    })
+    if (!best || distance < best.distance) {
+      best = {
+        distance,
+        outputs: scenario.outputs.map((output) => ({
+          id: output.id,
+          label:
+            output.label ??
+            input.fallback.find((candidate) => candidate.id === output.id)?.label ??
+            output.id,
+          value: output.value,
+          color:
+            output.color ??
+            input.fallback.find((candidate) => candidate.id === output.id)?.color,
+        })),
+      }
+    }
+  }
+
+  return best?.outputs.length ? best.outputs : input.fallback
+}
+
+function scenarioDistance(input: {
+  inputs: WhatIfComponent['inputs']
+  values: Record<string, string | number>
+  scenarioValues: Record<string, string | number>
+}): number {
+  let total = 0
+  for (const control of input.inputs) {
+    const current = input.values[control.id] ?? control.value
+    const candidate = input.scenarioValues[control.id]
+    if (candidate === undefined) {
+      total += 10
+      continue
+    }
+    if (typeof current === 'number' && typeof candidate === 'number') {
+      const span = Math.max(
+        1,
+        typeof control.max === 'number' && typeof control.min === 'number'
+          ? control.max - control.min
+          : Math.max(Math.abs(current), Math.abs(candidate), 1),
+      )
+      total += Math.abs(current - candidate) / span
+      continue
+    }
+    total += String(current) === String(candidate) ? 0 : 1
+  }
+  return total
 }
 
 export function CAssumptionList({

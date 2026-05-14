@@ -497,6 +497,7 @@ function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
     case 'what_if':
       normalizeArray(c, 'inputs')
       normalizeArray(c, 'outputs')
+      normalizeArray(c, 'scenarios')
       break
     case 'assumption_list':
       normalizeArray(c, 'items')
@@ -545,6 +546,20 @@ function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
       normalizeArray(c, 'lines')
       break
     case 'annotated_image':
+      if (!Array.isArray(c.pins) && Array.isArray(c.markers)) {
+        c.pins = c.markers.map((marker: unknown) => {
+          if (typeof marker !== 'object' || marker === null) return marker
+          const m = marker as Record<string, unknown>
+          return {
+            id: m.id,
+            x: m.x,
+            y: m.y,
+            label: typeof m.label === 'string' ? m.label : m.id,
+            note: m.note,
+            color: m.color,
+          }
+        })
+      }
       normalizeArray(c, 'pins')
       break
     case 'session_brief':
@@ -574,10 +589,12 @@ function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
       break
     case 'counter':
       normalizeNumber(c, 'value', 0)
+      normalizeNumber(c, 'step', 1)
       break
     case 'network':
       normalizeArray(c, 'nodes')
       normalizeArray(c, 'edges')
+      normalizeEdgeAliases(c.edges, 'from', 'to')
       break
     case 'tree':
       normalizeArray(c, 'nodes')
@@ -585,6 +602,7 @@ function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
     case 'sankey':
       normalizeArray(c, 'nodes')
       normalizeArray(c, 'flows')
+      normalizeEdgeAliases(c.flows, 'from', 'to')
       break
   }
 }
@@ -601,5 +619,23 @@ function normalizeNumber(
   const value = c[key]
   if (typeof value !== 'number' || Number.isNaN(value)) {
     c[key] = fallback
+  }
+}
+
+function normalizeEdgeAliases(
+  items: unknown,
+  fromKey: string,
+  toKey: string,
+): void {
+  if (!Array.isArray(items)) return
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) continue
+    const o = item as Record<string, unknown>
+    if (typeof o[fromKey] !== 'string' && typeof o.source === 'string') {
+      o[fromKey] = o.source
+    }
+    if (typeof o[toKey] !== 'string' && typeof o.target === 'string') {
+      o[toKey] = o.target
+    }
   }
 }

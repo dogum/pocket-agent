@@ -25,6 +25,12 @@ export function CNetwork({ nodes, edges }: NetworkComponent): JSX.Element {
     const center = { x: W / 2, y: H / 2 }
     return Object.fromEntries(
       nodes.map((node, index) => {
+        if (typeof node.x === 'number' && typeof node.y === 'number') {
+          return [
+            node.id,
+            { x: normalizeCoord(node.x, W), y: normalizeCoord(node.y, H) },
+          ]
+        }
         const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2 - Math.PI / 2
         return [
           node.id,
@@ -41,18 +47,20 @@ export function CNetwork({ nodes, edges }: NetworkComponent): JSX.Element {
     <div className="c-network">
       <svg viewBox={`0 0 ${W} ${H}`} role="img">
         {edges.map((edge, index) => {
-          const from = positions[edge.from]
-          const to = positions[edge.to]
+          const fromId = edge.from ?? edge.source
+          const toId = edge.to ?? edge.target
+          const from = fromId ? positions[fromId] : undefined
+          const to = toId ? positions[toId] : undefined
           if (!from || !to) return null
           return (
-            <g key={`${edge.from}-${edge.to}-${index}`}>
+            <g key={`${fromId}-${toId}-${index}`}>
               <line
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
                 stroke={edge.color ? COLOR_VAR[edge.color] : 'var(--hairline-strong)'}
-                strokeWidth={1.2}
+                strokeWidth={edge.weight ?? 1.2}
               />
               {edge.label && (
                 <text
@@ -69,12 +77,13 @@ export function CNetwork({ nodes, edges }: NetworkComponent): JSX.Element {
         {nodes.map((node) => {
           const point = positions[node.id]
           if (!point) return null
+          const r = node.size === 'lg' ? 24 : node.size === 'sm' ? 14 : 18
           return (
             <g key={node.id}>
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={18}
+                r={r}
                 fill={node.color ? COLOR_VAR[node.color] : 'var(--surface-2)'}
               />
               <text x={point.x} y={point.y + 4} textAnchor="middle">
@@ -116,10 +125,13 @@ export function CSankey({ nodes, flows }: SankeyComponent): JSX.Element {
   return (
     <div className="c-sankey">
       {flows.map((flow, index) => (
-        <div className="flow-row" key={`${flow.from}-${flow.to}-${index}`}>
+        <div
+          className="flow-row"
+          key={`${flow.from ?? flow.source}-${flow.to ?? flow.target}-${index}`}
+        >
           <div className="flow-labels">
-            <span>{labelFor(flow.from)}</span>
-            <span>{labelFor(flow.to)}</span>
+            <span>{labelFor(flow.from ?? flow.source ?? '')}</span>
+            <span>{labelFor(flow.to ?? flow.target ?? '')}</span>
           </div>
           <div className="flow-track">
             <span
@@ -155,4 +167,9 @@ function flattenTree(
   }
   visit(undefined, 0)
   return rows
+}
+
+function normalizeCoord(value: number, max: number): number {
+  if (value >= 0 && value <= 1) return value * max
+  return value
 }

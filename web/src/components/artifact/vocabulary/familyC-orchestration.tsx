@@ -7,7 +7,54 @@ import type {
 } from '@shared/index'
 import type { VocabularyRendererProps } from './types'
 
-export function CPlanCard({ goal, steps }: PlanCardComponent): JSX.Element {
+export function CPlanCard({
+  goal,
+  steps,
+  submit_label,
+  onInteraction,
+}: PlanCardComponent & VocabularyRendererProps): JSX.Element {
+  const askSteps = steps.filter((step) => step.ask)
+  const [answers, setAnswers] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      askSteps.map((step) => [step.ask!.id, step.ask!.value ?? '']),
+    ),
+  )
+  const [sent, setSent] = useState(false)
+  const [doneSent, setDoneSent] = useState<Record<string, boolean>>({})
+
+  const submitAsks = (): void => {
+    setSent(true)
+    void onInteraction?.({
+      kind: 'plan_card.submit',
+      component_type: 'plan_card',
+      payload: {
+        goal,
+        answers: askSteps.map((step) => ({
+          step_id: step.id,
+          step_title: step.title,
+          ask_id: step.ask!.id,
+          label: step.ask!.label,
+          value: answers[step.ask!.id] ?? '',
+        })),
+      },
+    })
+  }
+
+  const markDone = (step: PlanCardComponent['steps'][number]): void => {
+    setDoneSent((current) => ({ ...current, [step.id]: true }))
+    void onInteraction?.({
+      kind: 'plan_card.step_done',
+      component_type: 'plan_card',
+      component_id: step.id,
+      payload: {
+        step_id: step.id,
+        title: step.title,
+        detail: step.detail,
+        prompt: step.on_done?.prompt,
+      },
+    })
+  }
+
   return (
     <div className="c-plan-card">
       {goal && <div className="plan-goal">{goal}</div>}
@@ -23,16 +70,70 @@ export function CPlanCard({ goal, steps }: PlanCardComponent): JSX.Element {
             {step.ask && (
               <label className="step-ask">
                 <span>{step.ask.label}</span>
-                <input
-                  type="text"
-                  placeholder={step.ask.placeholder}
-                  defaultValue={step.ask.value}
-                />
+                {step.ask.kind === 'choice' && step.ask.options?.length ? (
+                  <select
+                    value={answers[step.ask.id] ?? ''}
+                    onChange={(e) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [step.ask!.id]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Choose...</option>
+                    {step.ask.options.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : step.ask.kind === 'confirm' ? (
+                  <div className="step-confirm">
+                    <input
+                      type="checkbox"
+                      checked={answers[step.ask.id] === 'confirmed'}
+                      onChange={(e) =>
+                        setAnswers((current) => ({
+                          ...current,
+                          [step.ask!.id]: e.target.checked ? 'confirmed' : '',
+                        }))
+                      }
+                    />
+                    <span>Confirm</span>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder={step.ask.placeholder}
+                    value={answers[step.ask.id] ?? ''}
+                    onChange={(e) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [step.ask!.id]: e.target.value,
+                      }))
+                    }
+                  />
+                )}
               </label>
             )}
+            {step.on_done && !doneSent[step.id] && (
+              <button
+                type="button"
+                className="mini-btn plan-step-done"
+                onClick={() => markDone(step)}
+              >
+                Mark done
+              </button>
+            )}
+            {doneSent[step.id] && <span className="status sent">Done sent</span>}
           </div>
         </div>
       ))}
+      {askSteps.length > 0 && (
+        <button type="button" className="btn primary" onClick={submitAsks}>
+          {sent ? 'Sent' : (submit_label ?? 'Submit plan answers')}
+        </button>
+      )}
     </div>
   )
 }
