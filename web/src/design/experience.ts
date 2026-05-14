@@ -81,21 +81,23 @@ export function resolveExperience(
   setting: ExperienceMode,
   sessions: Session[],
   artifacts: Artifact[],
+  profileArtifactTotal?: number,
 ): ResolvedExperienceMode {
   if (setting !== 'adaptive') return setting
 
-  // The feed array is paginated (api.listArtifacts limits to 30 on
-  // initial load), so it under-reports total history for any account
-  // past the first few weeks of use — `field_journal` (>= 40) would
-  // otherwise never trigger. Sum `Session.artifact_count` for the
-  // true total, which `SessionCard` already shows in its footer.
-  // Ratio stays scoped to the loaded feed because we only have
-  // priority data there, and recent-priority is the relevant signal
-  // for "is this person in a flagged-work moment" anyway.
-  const totalArtifacts = sessions.reduce(
+  // Two truthful-but-incomplete signals for total artifacts:
+  //   - sessions.reduce(...artifact_count) — reactive (updates as the
+  //     agent creates artifacts) but EXCLUDES archived sessions, which
+  //     the store doesn't hydrate by default.
+  //   - profile.stats.artifacts — server-truthful (counts archived)
+  //     but a boot-time snapshot, so it can lag behind new ingests.
+  // Taking the max combines both: archived history is preserved AND
+  // fresh artifacts still nudge thresholds before the next refresh.
+  const sessionTotal = sessions.reduce(
     (sum, session) => sum + session.artifact_count,
     0,
   )
+  const totalArtifacts = Math.max(sessionTotal, profileArtifactTotal ?? 0)
   if (totalArtifacts < 3) return 'observatory'
 
   const highPriorityRatio =

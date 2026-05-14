@@ -34,6 +34,7 @@ export function App(): JSX.Element {
   const ambientRun = useAppStore((s) => s.ambientRun)
   const sessions = useAppStore((s) => s.sessions)
   const artifacts = useAppStore((s) => s.artifacts)
+  const profileArtifactTotal = useAppStore((s) => s.profile?.stats.artifacts)
   useAmbientEvents()
 
   const theme = useSettings((s) => s.theme)
@@ -46,7 +47,12 @@ export function App(): JSX.Element {
   useEffect(() => {
     const root = document.documentElement
     const apply = (): void => {
-      const effectiveExperience = resolveExperience(experience, sessions, artifacts)
+      const effectiveExperience = resolveExperience(
+        experience,
+        sessions,
+        artifacts,
+        profileArtifactTotal,
+      )
       root.setAttribute('data-theme', resolveTheme(theme))
       root.setAttribute('data-density', density)
       root.setAttribute('data-scan', atmosphere)
@@ -60,7 +66,16 @@ export function App(): JSX.Element {
     const onChange = (): void => apply()
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [theme, accent, density, atmosphere, experience, sessions, artifacts])
+  }, [
+    theme,
+    accent,
+    density,
+    atmosphere,
+    experience,
+    sessions,
+    artifacts,
+    profileArtifactTotal,
+  ])
 
   // ── Initial server-state fetch ─────────────────────────────────────
   useEffect(() => {
