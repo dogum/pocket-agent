@@ -60,5 +60,9 @@ function deriveWorkbenchStage({
   if (hasChecklist || artifact.actions?.some((action) => action.action === 'confirm')) {
     return { activeIndex: 2, status: 'Ready for review' }
   }
-  return { activeIndex: 3, status: 'On deck' }
+  // "On deck" = queued, hasn't started. Maps to Intake (activeIndex 0)
+  // so the rail and meta line agree — otherwise activeIndex 3 lit up
+  // Ship and marked Intake/Draft/Review done while the text said the
+  // workpiece was still on deck.
+  return { activeIndex: 0, status: 'On deck' }
 }

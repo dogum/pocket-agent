@@ -83,7 +83,20 @@ export function resolveExperience(
   artifacts: Artifact[],
 ): ResolvedExperienceMode {
   if (setting !== 'adaptive') return setting
-  if (artifacts.length < 3) return 'observatory'
+
+  // The feed array is paginated (api.listArtifacts limits to 30 on
+  // initial load), so it under-reports total history for any account
+  // past the first few weeks of use — `field_journal` (>= 40) would
+  // otherwise never trigger. Sum `Session.artifact_count` for the
+  // true total, which `SessionCard` already shows in its footer.
+  // Ratio stays scoped to the loaded feed because we only have
+  // priority data there, and recent-priority is the relevant signal
+  // for "is this person in a flagged-work moment" anyway.
+  const totalArtifacts = sessions.reduce(
+    (sum, session) => sum + session.artifact_count,
+    0,
+  )
+  if (totalArtifacts < 3) return 'observatory'
 
   const highPriorityRatio =
     artifacts.filter((artifact) => artifact.priority === 'high').length /
@@ -91,9 +104,9 @@ export function resolveExperience(
   const activeSessions = sessions.filter((session) => session.status === 'active').length
 
   if (highPriorityRatio > 0.22) return 'workbench'
-  if (activeSessions >= 5 && artifacts.length >= 20) return 'daily_edition'
-  if (artifacts.length >= 40) return 'field_journal'
-  if (highPriorityRatio < 0.08 && artifacts.length >= 12) return 'quiet_atrium'
+  if (activeSessions >= 5 && totalArtifacts >= 20) return 'daily_edition'
+  if (totalArtifacts >= 40) return 'field_journal'
+  if (highPriorityRatio < 0.08 && totalArtifacts >= 12) return 'quiet_atrium'
 
   return 'observatory'
 }
