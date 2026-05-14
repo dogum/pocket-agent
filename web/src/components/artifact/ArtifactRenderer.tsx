@@ -42,7 +42,40 @@ import type {
   TimelineComponent,
 } from '@shared/index'
 import { describeCondition } from '@shared/index'
+import type { ArtifactInteractionHandler } from '../../lib/artifactInteractions'
 import { Icon } from '../icons/Icon'
+import {
+  CAgentTasks,
+  CAnnotatedImage,
+  CAnnotatedText,
+  CAssumptionList,
+  CCalculation,
+  CCalendarView,
+  CCheckpoint,
+  CConfidenceBand,
+  CCounter,
+  CCounterProposal,
+  CDecisionMatrix,
+  CDecisionTree,
+  CDeferredList,
+  CDiff,
+  CDraftReview,
+  CHeatmap,
+  CNetwork,
+  CPlanCard,
+  CProsCons,
+  CRanking,
+  CSankey,
+  CSchedulePicker,
+  CScratchpad,
+  CSessionBrief,
+  CTimer,
+  CTradeoffSlider,
+  CTranscript,
+  CTree,
+  CTriggerProposal,
+  CWhatIf,
+} from './vocabulary'
 
 const colorToVar = (c?: ThemeColor): string => {
   switch (c) {
@@ -782,11 +815,29 @@ function CLinkPreview({
   description,
   domain,
 }: LinkPreviewComponent): JSX.Element {
+  const safeUrl = safeHref(url)
   const host = domain ?? safeHost(url)
+  // Unsafe scheme (javascript:, data:, etc.) — render the card visually
+  // but make it non-clickable, with a tooltip explaining why. Agent
+  // output is model-generated and not trusted.
+  if (!safeUrl) {
+    return (
+      <div
+        className="c-link-preview blocked"
+        title="Blocked: unsafe URL scheme"
+        role="note"
+      >
+        {host && <span className="domain">{host}</span>}
+        {title && <span className="title">{title}</span>}
+        {description && <span className="desc">{description}</span>}
+        <span className="url">{url}</span>
+      </div>
+    )
+  }
   return (
     <a
       className="c-link-preview"
-      href={url}
+      href={safeUrl}
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -806,19 +857,40 @@ function safeHost(url: string): string {
   }
 }
 
+/** Validate an agent-supplied URL. Returns the parsed string only if
+ *  the scheme is http: or https:. Anything else (javascript:, data:,
+ *  vbscript:, file:, …) returns null so the renderer can degrade to a
+ *  non-clickable note. Used by link_preview and the external_link
+ *  action handler. */
+export function safeHref(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────
 export function ArtifactComponentView({
   component,
+  artifactId,
   onChecklistToggle,
   onQuestionSetSubmit,
+  onInteraction,
   onReflexApprove,
   onReflexDismiss,
 }: {
   component: ArtifactComponent
+  artifactId?: string
   onChecklistToggle?: (id: string) => void
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onInteraction?: ArtifactInteractionHandler
   onReflexApprove?: (proposal: ReflexProposalComponent) => void | Promise<void>
   onReflexDismiss?: () => void
 }): JSX.Element | null {
@@ -869,6 +941,66 @@ export function ArtifactComponentView({
       return <CKeyValueList {...component} />
     case 'link_preview':
       return <CLinkPreview {...component} />
+    case 'calculation':
+      return <CCalculation {...component} />
+    case 'what_if':
+      return <CWhatIf {...component} onInteraction={onInteraction} />
+    case 'assumption_list':
+      return <CAssumptionList {...component} onInteraction={onInteraction} />
+    case 'confidence_band':
+      return <CConfidenceBand {...component} />
+    case 'counter_proposal':
+      return <CCounterProposal {...component} onInteraction={onInteraction} />
+    case 'tradeoff_slider':
+      return <CTradeoffSlider {...component} onInteraction={onInteraction} />
+    case 'draft_review':
+      return <CDraftReview {...component} onInteraction={onInteraction} />
+    case 'plan_card':
+      return <CPlanCard {...component} onInteraction={onInteraction} />
+    case 'decision_tree':
+      return <CDecisionTree {...component} onInteraction={onInteraction} />
+    case 'checkpoint':
+      return <CCheckpoint {...component} />
+    case 'schedule_picker':
+      return <CSchedulePicker {...component} onInteraction={onInteraction} />
+    case 'calendar_view':
+      return <CCalendarView {...component} />
+    case 'heatmap':
+      return <CHeatmap {...component} />
+    case 'trigger_proposal':
+      return <CTriggerProposal {...component} onInteraction={onInteraction} />
+    case 'annotated_text':
+      return <CAnnotatedText {...component} />
+    case 'diff':
+      return <CDiff {...component} />
+    case 'transcript':
+      return <CTranscript {...component} />
+    case 'annotated_image':
+      return <CAnnotatedImage {...component} />
+    case 'session_brief':
+      return <CSessionBrief {...component} onInteraction={onInteraction} />
+    case 'agent_tasks':
+      return <CAgentTasks {...component} onInteraction={onInteraction} />
+    case 'deferred_list':
+      return <CDeferredList {...component} onInteraction={onInteraction} />
+    case 'decision_matrix':
+      return <CDecisionMatrix {...component} />
+    case 'pros_cons':
+      return <CProsCons {...component} />
+    case 'ranking':
+      return <CRanking {...component} onInteraction={onInteraction} />
+    case 'timer':
+      return <CTimer {...component} artifactId={artifactId} onInteraction={onInteraction} />
+    case 'counter':
+      return <CCounter {...component} artifactId={artifactId} onInteraction={onInteraction} />
+    case 'scratchpad':
+      return <CScratchpad {...component} artifactId={artifactId} onInteraction={onInteraction} />
+    case 'network':
+      return <CNetwork {...component} />
+    case 'tree':
+      return <CTree {...component} />
+    case 'sankey':
+      return <CSankey {...component} />
     case 'reflex_proposal':
       return (
         <CReflexProposal
@@ -924,7 +1056,7 @@ export function ArtifactCard({
       </div>
       {!dense &&
         artifact.components.map((c, i) => (
-          <ArtifactComponentView key={i} component={c} />
+          <ArtifactComponentView key={i} artifactId={artifact.id} component={c} />
         ))}
       {versionCount > 0 && (
         <div className="artifact-foot">
@@ -942,6 +1074,7 @@ export function ArtifactDetail({
   artifact,
   onAction,
   onQuestionSetSubmit,
+  onInteraction,
   onReflexApprove,
   onShowHistory,
 }: {
@@ -950,6 +1083,7 @@ export function ArtifactDetail({
   onQuestionSetSubmit?: (
     answers: Array<{ id: string; label: string; value: string }>,
   ) => void
+  onInteraction?: ArtifactInteractionHandler
   onReflexApprove?: (
     proposal: ReflexProposalComponent,
   ) => void | Promise<void>
@@ -1010,6 +1144,7 @@ export function ArtifactDetail({
         {artifact.components.map((c, i) => (
           <ArtifactComponentView
             key={i}
+            artifactId={artifact.id}
             onReflexApprove={onReflexApprove}
             component={
               c.type === 'checklist'
@@ -1024,6 +1159,7 @@ export function ArtifactDetail({
             }
             onChecklistToggle={toggle}
             onQuestionSetSubmit={onQuestionSetSubmit}
+            onInteraction={onInteraction}
           />
         ))}
       </div>

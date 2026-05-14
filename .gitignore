@@ -27,3 +27,7 @@ data/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Local-only design / planning notes — kept on disk for reference, not
+# part of the public repo (kickoff materials, mockup HTML, etc.).
+DesignVocab/

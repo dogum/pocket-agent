@@ -5,6 +5,7 @@ import { App } from './App'
 import './styles/theme.css'
 import './styles/shell.css'
 import './styles/components.css'
+import './styles/vocabulary.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root not found')

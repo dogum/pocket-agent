@@ -34,7 +34,7 @@ Discuss bigger changes in an issue before writing code. Small bugfixes can go st
 
 ### Adding a new artifact component
 
-This is the most common kind of extension. The component vocabulary has 24 entries today; to add the 25th, change **seven** places in lockstep:
+This is the most common kind of extension. The component vocabulary has 54 entries today; to add the 55th, change **seven** places in lockstep:
 
 1. Add the interface in [`shared/artifact.ts`](shared/artifact.ts) and add it to the `ArtifactComponent` discriminated union.
 2. Add a renderer + `case` in [`web/src/components/artifact/ArtifactRenderer.tsx`](web/src/components/artifact/ArtifactRenderer.tsx).

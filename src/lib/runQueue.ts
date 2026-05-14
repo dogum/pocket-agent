@@ -132,6 +132,17 @@ function drain(sessionId: string): void {
     )
 }
 
+/** True iff the given session has a job currently running or queued.
+ *  Used by routes that need to refuse a mutation while a run is in
+ *  flight (e.g. POST /api/sessions/:id/restart-agent — nulling the
+ *  managed_session_id mid-run would be silently undone by the run's
+ *  post-write of `finalResult.managedSessionId`). */
+export function hasActiveOrPending(sessionId: string): boolean {
+  const slot = slots.get(sessionId)
+  if (!slot) return false
+  return slot.running !== null || slot.pending.length > 0
+}
+
 export function queueState(): Array<{
   session_id: string
   running: { priority: RunPriority; description?: string } | null

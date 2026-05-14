@@ -60,6 +60,36 @@ const VALID_COMPONENT_TYPES = new Set([
   'markdown',
   'key_value_list',
   'link_preview',
+  'calculation',
+  'what_if',
+  'assumption_list',
+  'confidence_band',
+  'counter_proposal',
+  'tradeoff_slider',
+  'draft_review',
+  'plan_card',
+  'decision_tree',
+  'checkpoint',
+  'schedule_picker',
+  'calendar_view',
+  'heatmap',
+  'trigger_proposal',
+  'annotated_text',
+  'diff',
+  'transcript',
+  'annotated_image',
+  'session_brief',
+  'agent_tasks',
+  'deferred_list',
+  'decision_matrix',
+  'pros_cons',
+  'ranking',
+  'timer',
+  'counter',
+  'scratchpad',
+  'network',
+  'tree',
+  'sankey',
   'reflex_proposal',
 ])
 
@@ -84,14 +114,55 @@ const VALID_ACTION_TYPES = new Set([
 ])
 
 /** Pull a JSON object out of a string that might be wrapped in fences,
- *  preceded by prose, or followed by a trailing comment. We match the
- *  outermost {...} by counting braces, ignoring braces inside strings.  */
+ *  preceded by prose, followed by a trailing fenced note, or contain
+ *  inner markdown fences inside a `markdown` component's content.
+ *
+ *  We try three strategies in order and accept the first candidate that
+ *  parses as a JSON object:
+ *
+ *    A. Non-greedy first-fence: ``` … first matching ``` →
+ *       picks the FIRST fenced block in the message. Handles the common
+ *       case of `prose + ```json …``` + trailing prose or trailing
+ *       fenced notes (without over-reaching to the trailing fence).
+ *
+ *    B. Greedy first-fence: ``` … LAST ``` →
+ *       picks everything from the first opener to the last closer.
+ *       This is necessary when the artifact itself contains a `markdown`
+ *       component whose content has inner ``` fences — Strategy A's
+ *       first-close would truncate inside the markdown.
+ *
+ *    C. Brace scan over the whole text — counts balanced `{...}`
+ *       while tracking string boundaries. Last resort when the response
+ *       has no fence at all (a raw JSON message). */
 export function extractJson(text: string): string | null {
-  // Strip leading code fences quickly.
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-  if (fenced) return fenced[1].trim()
+  const trimmed = text.trim()
 
-  // Otherwise scan for a balanced top-level object.
+  for (const candidate of [
+    firstFenceCandidate(trimmed),
+    greedyFenceCandidate(trimmed),
+    braceScan(trimmed),
+  ]) {
+    if (candidate && isJsonObjectCandidate(candidate)) return candidate
+  }
+
+  return null
+}
+
+/** Strategy A: ``` … FIRST closing ``` (non-greedy). */
+function firstFenceCandidate(text: string): string | null {
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
+  return m ? m[1].trim() : null
+}
+
+/** Strategy B: ``` … LAST closing ``` (greedy). Reaches the outer
+ *  closer when the artifact contains inner markdown fences. */
+function greedyFenceCandidate(text: string): string | null {
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*)\n?\s*```/)
+  return m ? m[1].trim() : null
+}
+
+/** Strategy C: balanced-brace scan over the whole text. */
+function braceScan(text: string): string | null {
   let depth = 0
   let start = -1
   let inStr = false
@@ -122,6 +193,23 @@ export function extractJson(text: string): string | null {
     }
   }
   return null
+}
+
+/** Cheap structural check: starts with `{`, ends with `}`, and
+ *  JSON.parses to a non-array object. Used to validate each candidate
+ *  so we can fall through to the next strategy on a non-JSON match. */
+function isJsonObjectCandidate(candidate: string): boolean {
+  if (!candidate.startsWith('{') || !candidate.endsWith('}')) return false
+  try {
+    const parsed = JSON.parse(candidate)
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    )
+  } catch {
+    return false
+  }
 }
 
 export function parseArtifact(rawText: string): ParseResult {
@@ -396,5 +484,158 @@ function normalizeComponent(c: Record<string, unknown>): ArtifactComponent {
     const parsed = parseConditions(c.conditions, 'reflex_proposal')
     c.conditions = parsed.ok ? parsed.conditions : []
   }
+
+  normalizeVocabularyV2Component(c)
   return c as unknown as ArtifactComponent
+}
+
+function normalizeVocabularyV2Component(c: Record<string, unknown>): void {
+  switch (c.type) {
+    case 'calculation':
+      normalizeArray(c, 'steps')
+      break
+    case 'what_if':
+      normalizeArray(c, 'inputs')
+      normalizeArray(c, 'outputs')
+      normalizeArray(c, 'scenarios')
+      break
+    case 'assumption_list':
+      normalizeArray(c, 'items')
+      break
+    case 'counter_proposal':
+      normalizeArray(c, 'segments')
+      break
+    case 'tradeoff_slider':
+      normalizeNumber(c, 'value', 50)
+      normalizeNumber(c, 'min', 0)
+      normalizeNumber(c, 'max', 100)
+      break
+    case 'trigger_proposal':
+      // The renderer spreads `alternatives` into an array literal; a
+      // single object (a common model schema drift) would throw
+      // `TypeError: ... is not iterable`. Coerce to [].
+      if (c.alternatives !== undefined && !Array.isArray(c.alternatives)) {
+        c.alternatives = []
+      }
+      break
+    case 'draft_review':
+      normalizeArray(c, 'uncertain_spans')
+      break
+    case 'plan_card':
+      normalizeArray(c, 'steps')
+      break
+    case 'decision_tree':
+      normalizeArray(c, 'branches')
+      break
+    case 'checkpoint':
+      normalizeArray(c, 'stages')
+      break
+    case 'schedule_picker':
+      normalizeArray(c, 'slots')
+      break
+    case 'calendar_view':
+      normalizeArray(c, 'days')
+      break
+    case 'heatmap':
+      normalizeArray(c, 'values')
+      break
+    case 'annotated_text':
+      normalizeArray(c, 'annotations')
+      break
+    case 'transcript':
+      normalizeArray(c, 'lines')
+      break
+    case 'annotated_image':
+      if (!Array.isArray(c.pins) && Array.isArray(c.markers)) {
+        c.pins = c.markers.map((marker: unknown) => {
+          if (typeof marker !== 'object' || marker === null) return marker
+          const m = marker as Record<string, unknown>
+          return {
+            id: m.id,
+            x: m.x,
+            y: m.y,
+            label: typeof m.label === 'string' ? m.label : m.id,
+            note: m.note,
+            color: m.color,
+          }
+        })
+      }
+      normalizeArray(c, 'pins')
+      break
+    case 'session_brief':
+      normalizeArray(c, 'facts')
+      normalizeArray(c, 'open_threads')
+      break
+    case 'agent_tasks':
+      normalizeArray(c, 'tasks')
+      break
+    case 'deferred_list':
+      normalizeArray(c, 'items')
+      break
+    case 'decision_matrix':
+      normalizeArray(c, 'options')
+      normalizeArray(c, 'criteria')
+      break
+    case 'pros_cons':
+      normalizeArray(c, 'pros')
+      normalizeArray(c, 'cons')
+      break
+    case 'ranking':
+      normalizeArray(c, 'items')
+      break
+    case 'timer':
+      normalizeNumber(c, 'duration_seconds', 0)
+      normalizeNumber(c, 'elapsed_seconds', 0)
+      break
+    case 'counter':
+      normalizeNumber(c, 'value', 0)
+      normalizeNumber(c, 'step', 1)
+      break
+    case 'network':
+      normalizeArray(c, 'nodes')
+      normalizeArray(c, 'edges')
+      normalizeEdgeAliases(c.edges, 'from', 'to')
+      break
+    case 'tree':
+      normalizeArray(c, 'nodes')
+      break
+    case 'sankey':
+      normalizeArray(c, 'nodes')
+      normalizeArray(c, 'flows')
+      normalizeEdgeAliases(c.flows, 'from', 'to')
+      break
+  }
+}
+
+function normalizeArray(c: Record<string, unknown>, key: string): void {
+  if (!Array.isArray(c[key])) c[key] = []
+}
+
+function normalizeNumber(
+  c: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): void {
+  const value = c[key]
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    c[key] = fallback
+  }
+}
+
+function normalizeEdgeAliases(
+  items: unknown,
+  fromKey: string,
+  toKey: string,
+): void {
+  if (!Array.isArray(items)) return
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) continue
+    const o = item as Record<string, unknown>
+    if (typeof o[fromKey] !== 'string' && typeof o.source === 'string') {
+      o[fromKey] = o.source
+    }
+    if (typeof o[toKey] !== 'string' && typeof o.target === 'string') {
+      o[toKey] = o.target
+    }
+  }
 }

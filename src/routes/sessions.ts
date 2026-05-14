@@ -15,6 +15,7 @@ import type { Database as DB } from 'better-sqlite3'
 import type { Config } from '../client.js'
 import { rowToSession } from '../db.js'
 import { newId } from '../lib/id.js'
+import { hasActiveOrPending } from '../lib/runQueue.js'
 import {
   dropSession,
   reconcileSessionTriggers,
@@ -141,6 +142,56 @@ export function sessionsRoutes(_config: Config, db: DB): Hono {
     const result = db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
     if (result.changes === 0) return c.json({ error: 'not_found' }, 404)
     return c.json({ ok: true })
+  })
+
+  // Drop the managed-agent linkage so the next ingest creates a fresh
+  // managed session on the agent's CURRENT version. Local rows
+  // (artifacts, ingests, attached sources, briefings) all stay.
+  //
+  // Anthropic Managed Agents pin a session to the agent version that
+  // was current at session-create time (per managed-agents/sessions.md:
+  // "passing in the `agent` ID as a string starts the session with the
+  // latest agent version"). When the system prompt is later updated
+  // via `pnpm bootstrap-agent`, existing sessions remain on their
+  // original pin. This endpoint is the user-side reset: drop the
+  // managed-session pointer so the next run in this thread picks up
+  // the latest prompt + tools.
+  app.post('/:id/restart-agent', (c) => {
+    const id = c.req.param('id')
+    const existing = db
+      .prepare('SELECT * FROM sessions WHERE id = ?')
+      .get(id) as Parameters<typeof rowToSession>[0] | undefined
+    if (!existing) return c.json({ error: 'not_found' }, 404)
+
+    // Reject while a user / trigger / reflex / artifact-update run is
+    // in flight or queued — the run.ts post-write of
+    // `finalResult.managedSessionId` would otherwise silently undo
+    // this restart and leave the thread pinned to the old session.
+    // The user retries after the run finishes; the run-queue is
+    // single-job-per-session so this is a tight window.
+    if (hasActiveOrPending(id)) {
+      return c.json(
+        {
+          error: 'run_in_flight',
+          message:
+            'A run is active or queued on this session. Wait for it to finish, then restart the agent thread.',
+        },
+        409,
+      )
+    }
+
+    db.prepare(`
+      UPDATE sessions SET
+        managed_session_id = NULL,
+        run_status         = NULL,
+        updated_at         = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), id)
+
+    const row = db
+      .prepare('SELECT * FROM sessions WHERE id = ?')
+      .get(id) as Parameters<typeof rowToSession>[0]
+    return c.json(rowToSession(row))
   })
 
   return app

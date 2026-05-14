@@ -6,11 +6,15 @@ import type {
   ArtifactVersion,
   ReflexProposalComponent,
 } from '@shared/index'
-import { ArtifactDetail } from '../components/artifact/ArtifactRenderer'
+import { ArtifactDetail, safeHref } from '../components/artifact/ArtifactRenderer'
 import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
 import { useRunDispatcher } from '../hooks/useRunDispatcher'
 import { api } from '../lib/api'
+import {
+  buildArtifactInteractionPrompt,
+  type ArtifactInteractionPayload,
+} from '../lib/artifactInteractions'
 import { artifactToMarkdown } from '../lib/artifactToMarkdown'
 import { useAppStore } from '../store/useAppStore'
 import { ReplySheet } from './ReplySheet'
@@ -62,7 +66,19 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
         return
       }
       case 'external_link': {
-        if (act.url) window.open(act.url, '_blank', 'noopener')
+        if (act.url) {
+          // Agent-supplied URL — only follow http/https. window.open with
+          // javascript: runs in the app origin; same XSS path as a raw
+          // href bind. Belt-and-suspenders with link_preview's safeHref.
+          const safe = safeHref(act.url)
+          if (safe) {
+            window.open(safe, '_blank', 'noopener')
+          } else {
+            setActionFeedback(
+              `Blocked: action URL must use http:// or https://`,
+            )
+          }
+        }
         return
       }
       case 'navigate': {
@@ -204,6 +220,52 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
     }
   }
 
+  const handleComponentInteraction = async (
+    interaction: ArtifactInteractionPayload,
+  ): Promise<void> => {
+    if (!artifact) return
+    try {
+      if (interaction.kind === 'trigger_proposal.approve') {
+        const payload = triggerPayload(interaction.payload)
+        if (!payload) {
+          setActionFeedback('Trigger proposal was missing schedule details.')
+          return
+        }
+        await api.createTrigger(artifact.session_id, {
+          schedule: payload.cron,
+          description: payload.cadence_label,
+          prompt: payload.action,
+          enabled: true,
+        })
+        setActionFeedback('Trigger approved — it will run on schedule.')
+        return
+      }
+
+      const prompt = buildArtifactInteractionPrompt({ artifact, interaction })
+      const ingest = await api.createIngest({
+        session_id: artifact.session_id,
+        type: 'text',
+        raw_text: prompt,
+        metadata: {
+          source_app: 'artifact_interaction',
+          artifact_id: artifact.id,
+          interaction_kind: interaction.kind,
+        },
+      })
+      void dispatch(artifact.session_id, ingest.id)
+      setActionFeedback(
+        useAppStore.getState().activeRunId
+          ? 'Sent — queued behind the current run.'
+          : 'Sent — agent is on it.',
+      )
+    } catch (e) {
+      setActionFeedback(
+        e instanceof Error ? e.message : 'Failed to handle interaction.',
+      )
+      if (interaction.kind === 'trigger_proposal.approve') throw e
+    }
+  }
+
   if (error) {
     return (
       <div className="screen enter">
@@ -237,6 +299,7 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
         artifact={artifact}
         onAction={handleAction}
         onQuestionSetSubmit={(a) => void handleQuestionSetSubmit(a)}
+        onInteraction={(interaction) => void handleComponentInteraction(interaction)}
         onReflexApprove={handleReflexApprove}
         onShowHistory={() => void openHistory()}
       />
@@ -316,6 +379,25 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
       )}
     </div>
   )
+}
+
+function triggerPayload(
+  payload: unknown,
+): { cadence_label: string; cron: string; action: string } | null {
+  if (typeof payload !== 'object' || payload === null) return null
+  const o = payload as Record<string, unknown>
+  if (
+    typeof o.cadence_label !== 'string' ||
+    typeof o.cron !== 'string' ||
+    typeof o.action !== 'string'
+  ) {
+    return null
+  }
+  return {
+    cadence_label: o.cadence_label,
+    cron: o.cron,
+    action: o.action,
+  }
 }
 
 function ArtifactHistorySheet({

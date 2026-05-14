@@ -22,6 +22,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 
 import type { ArtifactDraft, RunEvent } from '../../shared/index.js'
 import { classifyError } from '../client.js'
+import * as log from '../lib/log.js'
 import { parseArtifact } from './parseArtifact.js'
 
 export interface StreamSessionInput {
@@ -289,6 +290,10 @@ export async function* streamSession(
           // Genuine end. Parse the agent's text as an artifact.
           const parsed = parseArtifact(agentText)
           if (parsed.ok) {
+            log.detail(
+              'artifact',
+              `parsed ${agentText.length} chars for session ${input.localSessionId}`,
+            )
             // Note: caller materializes the Artifact (assigning id, session_id,
             // created_at) and re-emits artifact.ready downstream. We don't emit
             // it here because we don't own the persistence layer.
@@ -305,6 +310,10 @@ export async function* streamSession(
       createdManagedSession,
             }
           } else {
+            log.warn(
+              `parseArtifact failed for session ${input.localSessionId}: ${parsed.error}`,
+            )
+            log.detail('agent text', previewForLog(agentText))
             yield {
               type: 'run.error',
               kind: 'parse',
@@ -369,6 +378,11 @@ async function createFresh(
 function truncateForUI(s: string, max: number): string {
   if (s.length <= max) return s
   return `${s.slice(0, max - 1).trim()}…`
+}
+
+function previewForLog(s: string): string {
+  const compact = s.replace(/\s+/g, ' ').trim()
+  return truncateForUI(compact || '[empty]', 240)
 }
 
 function briefForTool(

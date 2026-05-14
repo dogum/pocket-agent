@@ -19,7 +19,13 @@ This is the open-source companion to the concept. It runs entirely on your machi
 
 ## What it looks like
 
-The agent emits one **Artifact** per ingest — a JSON object composed from a vocabulary of 24 component types: data rows, sparklines, line charts, tables, alerts, timelines, progress, comparisons, quotes, checklists, sources, status lists, images, maps, key/value lists, link previews, sandboxed HTML embeds, paragraphs, headings, dividers, markdown, **question sets** the user can fill in inline, and **reflex proposals** the user can approve to install agent-authored watchers. The agent picks, arranges, and styles them around your context — a marathon training session looks like a training app, a home renovation looks like a job tracker, a research project looks like a workbench.
+The agent emits one **Artifact** per ingest — a JSON object composed from a vocabulary of **54 component types** across three families:
+
+- **Show the data.** data rows, sparklines, line / bar charts, tables, alerts, timelines, progress, comparisons, status lists, images, maps, key/value lists, link previews, heatmaps, calendar views, sources.
+- **Show the writing.** paragraphs, headings, markdown, quotes, dividers, sandboxed HTML embeds, annotated text / images, diffs, transcripts.
+- **Show the thinking, negotiate, and plan.** calculations (with the steps shown), assumption lists (with "Correct" affordances), confidence bands (estimate + range + method), tradeoff sliders, counter-proposals the user can accept / modify / reject in parts, decision matrices, pros/cons, rankings, what-ifs, plan cards, checkpoints, schedule pickers, agent task lists, deferred lists, scratchpads, timers, counters, session briefs, decision trees, networks / trees / sankeys, draft reviews, reflex and trigger proposals, question sets.
+
+The agent picks, arranges, and styles them around your context — a marathon training session looks like a training app, a home renovation looks like a job tracker, a research project looks like a workbench.
 
 Beyond user-driven turns, the agent can also act *ambiently*. Long-lived **Sources** (polled URLs, MCP servers, a built-in `fake_pulse` demo) emit observations between your inputs. Attach a source to a session and recent observations land in the agent's kickoff context. Approve a **reflex** and it fires automatically when its pattern matches. Mark an artifact as **living** with `subscribes_to` and it updates itself in place — with a pulsing LIVE badge and a version history sheet — as new observations arrive.
 
@@ -120,7 +126,7 @@ The full schema lives in [`shared/artifact.ts`](shared/artifact.ts). The rendere
 ```
 pocket-agent/
 ├── shared/                       Type contract used by both web and server
-│   ├── artifact.ts                24 component types as a discriminated union
+│   ├── artifact.ts                54 component types as a discriminated union
 │   ├── session.ts                 Session, Ingest, Briefing, Trigger
 │   ├── source.ts                  Source, Observation, Reflex, ArtifactSubscription
 │   └── events.ts                  SSE event taxonomy

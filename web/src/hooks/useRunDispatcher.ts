@@ -28,6 +28,7 @@ export interface RunDispatcher {
 
 export function useRunDispatcher(): RunDispatcher {
   const setRun = useAppStore((s) => s.setRun)
+  const setRunError = useAppStore((s) => s.setRunError)
   const clearRun = useAppStore((s) => s.clearRun)
   const upsertArtifact = useAppStore((s) => s.upsertArtifact)
   const setData = useAppStore((s) => s.setData)
@@ -40,6 +41,7 @@ export function useRunDispatcher(): RunDispatcher {
     (e: RunEvent): void => {
       switch (e.type) {
         case 'run.started':
+          setRunError(null)
           setRun({ activeRunId: e.run_id, liveText: '', liveTool: null })
           break
         case 'agent.text_delta':
@@ -64,6 +66,7 @@ export function useRunDispatcher(): RunDispatcher {
         case 'run.error':
           // eslint-disable-next-line no-console
           console.error('run error', e)
+          setRunError(e.message)
           break
         case 'run.done':
           // Handled by `runOne` finally below.
@@ -72,7 +75,7 @@ export function useRunDispatcher(): RunDispatcher {
           break
       }
     },
-    [setRun, upsertArtifact, setData],
+    [setRun, setRunError, upsertArtifact, setData],
   )
 
   // Run one item end-to-end, then drain the queue.
@@ -92,6 +95,7 @@ export function useRunDispatcher(): RunDispatcher {
         if (!ctrl.signal.aborted) {
           // eslint-disable-next-line no-console
           console.error('run dispatch failed', err)
+          setRunError(err instanceof Error ? err.message : String(err))
         }
       } finally {
         clearRun()
@@ -105,7 +109,7 @@ export function useRunDispatcher(): RunDispatcher {
         void runOne(next.sessionId, next.ingestId)
       }
     },
-    [onEvent, clearRun],
+    [onEvent, clearRun, setRunError],
   )
 
   const dispatch = useCallback(
