@@ -181,9 +181,7 @@ export function ScreenHead({
         <Icon name="chevron-left" />
       </button>
       <span className="title">{title}</span>
-      <button className="icon-btn" type="button">
-        <Icon name="menu" />
-      </button>
+      <span className="screen-head-spacer" aria-hidden="true" />
     </div>
   )
 }

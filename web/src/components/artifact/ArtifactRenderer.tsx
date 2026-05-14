@@ -1056,7 +1056,13 @@ export function ArtifactCard({
       </div>
       {!dense &&
         artifact.components.map((c, i) => (
-          <ArtifactComponentView key={i} artifactId={artifact.id} component={c} />
+          <div
+            key={i}
+            className={`artifact-component artifact-component-${c.type}`}
+            data-component-type={c.type}
+          >
+            <ArtifactComponentView artifactId={artifact.id} component={c} />
+          </div>
         ))}
       {versionCount > 0 && (
         <div className="artifact-foot">
@@ -1142,25 +1148,30 @@ export function ArtifactDetail({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {artifact.components.map((c, i) => (
-          <ArtifactComponentView
+          <div
             key={i}
-            artifactId={artifact.id}
-            onReflexApprove={onReflexApprove}
-            component={
-              c.type === 'checklist'
-                ? {
-                    ...c,
-                    items: c.items.map((it) => ({
-                      ...it,
-                      checked: checked[it.id] ?? it.checked,
-                    })),
-                  }
-                : c
-            }
-            onChecklistToggle={toggle}
-            onQuestionSetSubmit={onQuestionSetSubmit}
-            onInteraction={onInteraction}
-          />
+            className={`artifact-component artifact-component-${c.type}`}
+            data-component-type={c.type}
+          >
+            <ArtifactComponentView
+              artifactId={artifact.id}
+              onReflexApprove={onReflexApprove}
+              component={
+                c.type === 'checklist'
+                  ? {
+                      ...c,
+                      items: c.items.map((it) => ({
+                        ...it,
+                        checked: checked[it.id] ?? it.checked,
+                      })),
+                    }
+                  : c
+              }
+              onChecklistToggle={toggle}
+              onQuestionSetSubmit={onQuestionSetSubmit}
+              onInteraction={onInteraction}
+            />
+          </div>
         ))}
       </div>
 

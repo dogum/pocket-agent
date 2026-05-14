@@ -5,7 +5,7 @@
 import { useState, type JSX } from 'react'
 
 import { Icon, type IconName } from '../components/icons/Icon'
-import { ScanBar } from '../components/shell/Shell'
+import { AgentPresence } from '../components/shell/AgentPresence'
 import { api } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
 
@@ -268,7 +268,6 @@ function Step1(): JSX.Element {
     { icon: 'link', label: 'Link', desc: 'any URL — articles, video, social' },
     { icon: 'file', label: 'File', desc: 'PDFs, CSVs, video, anything' },
     { icon: 'photo', label: 'Photo', desc: 'scan a label, capture a moment' },
-    { icon: 'mic', label: 'Voice', desc: 'arriving in a later phase' },
   ]
   return (
     <div className="rise">
@@ -441,7 +440,7 @@ function Step3(): JSX.Element {
         </svg>
       </div>
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <ScanBar
+        <AgentPresence
           state="thinking"
           text="Reasoning"
           detail="comparing 7 long runs · drawing tapering curve"

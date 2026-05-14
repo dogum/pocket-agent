@@ -396,6 +396,10 @@ body::before {
 }
 .screen-head .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .screen-head .icon-btn svg { width: 16px; height: 16px; }
+.screen-head-spacer {
+  width: 36px;
+  height: 36px;
+}
 .screen-head .title {
   font-family: var(--mono);
   font-size: 11px;

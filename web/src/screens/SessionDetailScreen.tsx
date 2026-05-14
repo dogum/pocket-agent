@@ -4,9 +4,12 @@ import type { Artifact, Ingest, Reflex, Source } from '@shared/index'
 import { ArtifactCard } from '../components/artifact/ArtifactRenderer'
 import { Icon } from '../components/icons/Icon'
 import { ScreenHead } from '../components/shell/Shell'
+import { EXPERIENCES } from '../design/experience'
+import { useResolvedExperience } from '../design/useExperience'
 import { api } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
 import { useConfirm } from '../store/useConfirm'
+import { capitalize, pluralize } from './sessions/utils'
 
 export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
   const back = useAppStore((s) => s.back)
@@ -14,6 +17,10 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
   const session = useAppStore((s) => s.sessions.find((s) => s.id === id))
   const upsertSession = useAppStore((s) => s.upsertSession)
   const confirm = useConfirm((s) => s.request)
+  const experience = useResolvedExperience()
+  const definition = EXPERIENCES[experience]
+  const sessionNoun = definition.sessionNoun
+  const artifactNoun = definition.artifactNoun
 
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [ingests, setIngests] = useState<Ingest[]>([])
@@ -69,9 +76,9 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
   if (!session) {
     return (
       <div className="screen enter">
-        <ScreenHead onBack={back} title="Session" />
+        <ScreenHead onBack={back} title={capitalize(sessionNoun)} />
         <div className="briefing">
-          <div className="t-body-sm">Session not found.</div>
+          <div className="t-body-sm">{capitalize(sessionNoun)} not found.</div>
         </div>
       </div>
     )
@@ -88,7 +95,7 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
 
   return (
     <div className="screen enter" data-screen-label="04 Session Detail">
-      <ScreenHead onBack={back} title="Session" />
+      <ScreenHead onBack={back} title={capitalize(sessionNoun)} />
       <div
         style={{ padding: '0 var(--screen-pad) var(--space-md)' }}
         className="rise"
@@ -113,7 +120,7 @@ export function SessionDetailScreen({ id }: { id: string }): JSX.Element {
           </div>
           <div className="cell">
             <span className="v">{session.artifact_count}</span>
-            <span className="l">Artifacts</span>
+            <span className="l">{capitalize(pluralize(artifactNoun))}</span>
           </div>
           <div className="cell">
             <span className="v cool">{session.config.triggers?.length ?? 0}</span>
@@ -593,3 +600,6 @@ function relativeShort(iso: string): string {
   const day = Math.round(hr / 24)
   return `${day}d`
 }
+
+/* pluralize / capitalize imported from ./sessions/utils — kept in one
+   place so the noun strategy stays consistent across screens. */

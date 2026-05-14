@@ -1,0 +1,242 @@
+[data-experience='quiet_atrium'] {
+  --bg: #E8E0CF;
+  --bg-deep: #D8CFB9;
+  --surface-1: rgba(42, 37, 32, 0.045);
+  --surface-2: rgba(42, 37, 32, 0.075);
+  --surface-3: rgba(42, 37, 32, 0.11);
+  --hairline: rgba(42, 37, 32, 0.12);
+  --hairline-strong: rgba(42, 37, 32, 0.22);
+  --text: #2A2520;
+  --text-2: #5E5549;
+  --text-3: #8D806E;
+  --text-4: #B8AE9C;
+  --signal: #7D8F6A;
+  --signal-bright: #96A980;
+  --signal-deep: #566348;
+  --signal-dim: rgba(125, 143, 106, 0.16);
+  --signal-glow: rgba(125, 143, 106, 0.18);
+  --signal-wash: rgba(125, 143, 106, 0.06);
+  --cool: #6F858C;
+  --cool-dim: rgba(111, 133, 140, 0.13);
+  --cool-glow: rgba(111, 133, 140, 0.18);
+  --green: #7D8F6A;
+  --green-dim: rgba(125, 143, 106, 0.14);
+  --amber: #B8965A;
+  --amber-dim: rgba(184, 150, 90, 0.14);
+  --red: #A65F4A;
+  --red-dim: rgba(166, 95, 74, 0.13);
+  --serif: Georgia, 'Times New Roman', serif;
+  --device-border: rgba(42, 37, 32, 0.12);
+  --device-shadow: 0 0 0 1px rgba(42,37,32,0.10),
+                   0 60px 140px rgba(42,37,32,0.20),
+                   inset 0 1px 0 rgba(255,255,255,0.58);
+  --grain-blend: multiply;
+  --grain-opacity: 0.24;
+  --sheet-scrim: rgba(42,37,32,0.30);
+  --sheet-shadow: 0 -24px 60px rgba(42,37,32,0.22), 0 -1px 0 rgba(42,37,32,0.06) inset;
+  --sheet-grip: rgba(42,37,32,0.22);
+  --dock-bg: rgba(232, 224, 207, 0.95);
+  --dock-shadow: 0 24px 48px rgba(42,37,32,0.18);
+  --experience-backdrop:
+    radial-gradient(ellipse 80% 48% at 50% 12%, rgba(255,255,255,0.18), transparent 62%),
+    radial-gradient(ellipse 70% 38% at 50% 90%, rgba(125,143,106,0.12), transparent 64%);
+  --experience-nav-bg: linear-gradient(to top, rgba(232,224,207,0.96) 0%, rgba(232,224,207,0.84) 58%, transparent 100%);
+  --atrium-wall-glow: rgba(255,255,255,0.28);
+  --atrium-card-bg: rgba(255, 250, 238, 0.36);
+}
+
+[data-theme='dark'][data-experience='quiet_atrium'] {
+  --bg: #2A2520;
+  --bg-deep: #1B1713;
+  --surface-1: rgba(240, 233, 218, 0.050);
+  --surface-2: rgba(240, 233, 218, 0.085);
+  --surface-3: rgba(240, 233, 218, 0.13);
+  --hairline: rgba(240, 233, 218, 0.12);
+  --hairline-strong: rgba(240, 233, 218, 0.22);
+  --text: #F0E9DA;
+  --text-2: #C6BCA8;
+  --text-3: #8F826D;
+  --text-4: #5E5549;
+  --device-border: rgba(240, 233, 218, 0.10);
+  --device-shadow: 0 0 0 1px rgba(0,0,0,0.75),
+                   0 60px 140px rgba(0,0,0,0.62),
+                   inset 0 1px 0 rgba(240,233,218,0.05);
+  --grain-blend: overlay;
+  --grain-opacity: 0.36;
+  --sheet-scrim: rgba(0,0,0,0.52);
+  --sheet-shadow: 0 -24px 60px rgba(0,0,0,0.54), 0 -1px 0 rgba(240,233,218,0.06) inset;
+  --sheet-grip: rgba(240,233,218,0.18);
+  --dock-bg: rgba(42, 37, 32, 0.96);
+  --dock-shadow: 0 24px 48px rgba(0,0,0,0.50);
+  --experience-backdrop:
+    radial-gradient(ellipse 80% 48% at 50% 12%, rgba(125,143,106,0.12), transparent 62%),
+    radial-gradient(ellipse 70% 38% at 50% 90%, rgba(240,233,218,0.05), transparent 64%);
+  --experience-nav-bg: linear-gradient(to top, rgba(42,37,32,0.96) 0%, rgba(42,37,32,0.84) 58%, transparent 100%);
+  --atrium-wall-glow: rgba(240,233,218,0.08);
+  --atrium-card-bg: rgba(240, 233, 218, 0.055);
+}
+
+[data-experience='quiet_atrium'] .screen-layer {
+  background:
+    radial-gradient(circle at 15% 10%, var(--atrium-wall-glow), transparent 24%),
+    var(--bg);
+}
+
+[data-experience='quiet_atrium'] .artifact {
+  border-radius: 7px;
+  background: var(--atrium-card-bg);
+  box-shadow: 0 12px 28px rgba(42, 37, 32, 0.10);
+}
+
+[data-experience='quiet_atrium'] .presence-atrium::before {
+  animation-duration: 8s;
+}
+
+[data-experience='quiet_atrium'] .presence-mark {
+  animation: watching-pulse 4.5s ease-in-out infinite;
+}
+
+[data-experience='quiet_atrium'] .presence-atrium.state-ingesting .presence-mark {
+  animation-duration: 1.8s;
+}
+
+[data-experience='quiet_atrium'] .presence-atrium.state-thinking::before {
+  opacity: 0.22;
+  animation-duration: 7s;
+}
+
+[data-experience='quiet_atrium'] .presence-atrium.state-drafting::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--signal-dim);
+  transform: rotate(-6deg);
+  animation: atrium-place-card 2.4s ease-in-out infinite;
+}
+
+[data-experience='quiet_atrium'] .presence-atrium.state-watching::before {
+  opacity: 0.12;
+  animation-duration: 10s;
+}
+
+[data-experience='quiet_atrium'] .detail-atrium .detail-chrome {
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  border: 1px solid var(--hairline);
+}
+
+[data-experience='quiet_atrium'] .sessions-atrium .sessions-masthead {
+  padding-bottom: 10px;
+}
+
+[data-experience='quiet_atrium'] .sessions-atrium .session-card-shell {
+  grid-template-columns: 58px minmax(0, 1fr);
+  border-radius: 7px;
+  background: var(--atrium-card-bg);
+  box-shadow: 0 12px 28px rgba(42, 37, 32, 0.10);
+}
+
+[data-experience='quiet_atrium'] .sessions-atrium .session-room-pin {
+  border-right: none;
+}
+
+[data-experience='quiet_atrium'] .artifact-component-data_row,
+[data-experience='quiet_atrium'] .artifact-component-key_value_list,
+[data-experience='quiet_atrium'] .artifact-component-table,
+[data-experience='quiet_atrium'] .artifact-component-status_list {
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  padding: 8px;
+}
+
+[data-experience='quiet_atrium'] :is(
+  .artifact-component-calculation,
+  .artifact-component-assumption_list,
+  .artifact-component-confidence_band,
+  .artifact-component-counter_proposal,
+  .artifact-component-tradeoff_slider,
+  .artifact-component-decision_matrix,
+  .artifact-component-pros_cons,
+  .artifact-component-ranking,
+  .artifact-component-plan_card,
+  .artifact-component-checkpoint,
+  .artifact-component-what_if,
+  .artifact-component-decision_tree,
+  .artifact-component-session_brief,
+  .artifact-component-agent_tasks,
+  .artifact-component-deferred_list,
+  .artifact-component-schedule_picker,
+  .artifact-component-trigger_proposal,
+  .artifact-component-reflex_proposal,
+  .artifact-component-checklist,
+  .artifact-component-question_set,
+  .artifact-component-draft_review,
+  .artifact-component-scratchpad
+) {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: var(--atrium-card-bg);
+  box-shadow: 0 8px 18px rgba(42, 37, 32, 0.08);
+}
+
+[data-experience='quiet_atrium'] :is(
+  .artifact-component-heading,
+  .artifact-component-paragraph,
+  .artifact-component-markdown,
+  .artifact-component-annotated_text,
+  .artifact-component-transcript,
+  .artifact-component-diff,
+  .artifact-component-quote,
+  .artifact-component-divider,
+  .artifact-component-sources
+) {
+  padding: 4px 8px;
+  border-left: 1px solid var(--hairline);
+}
+
+[data-experience='quiet_atrium'] :is(
+  .artifact-component-sparkline,
+  .artifact-component-line_chart,
+  .artifact-component-bar_chart,
+  .artifact-component-progress,
+  .artifact-component-timeline,
+  .artifact-component-comparison,
+  .artifact-component-map,
+  .artifact-component-calendar_view,
+  .artifact-component-heatmap,
+  .artifact-component-network,
+  .artifact-component-tree,
+  .artifact-component-sankey,
+  .artifact-component-html_embed,
+  .artifact-component-alert,
+  .artifact-component-timer,
+  .artifact-component-counter
+) {
+  padding: 9px;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+[data-experience='quiet_atrium'] .artifact-component-image,
+[data-experience='quiet_atrium'] .artifact-component-annotated_image,
+[data-experience='quiet_atrium'] .artifact-component-link_preview {
+  transform: rotate(-0.6deg);
+}
+
+[data-experience='quiet_atrium'] .artifact-component-question_set {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+@keyframes atrium-place-card {
+  0%, 100% { transform: translateY(-2px) rotate(-6deg); opacity: 0.35; }
+  50% { transform: translateY(2px) rotate(2deg); opacity: 1; }
+}

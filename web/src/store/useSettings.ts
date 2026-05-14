@@ -10,11 +10,19 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type ThemePreference = 'auto' | 'light' | 'dark'
+export type ExperienceMode =
+  | 'adaptive'
+  | 'observatory'
+  | 'field_journal'
+  | 'daily_edition'
+  | 'workbench'
+  | 'quiet_atrium'
 export type Density = 'editorial' | 'balanced' | 'instrument'
 export type Atmosphere = 'minimal' | 'signature' | 'intense'
 
 export interface Settings {
   theme: ThemePreference
+  experience: ExperienceMode
   accent: string
   density: Density
   atmosphere: Atmosphere
@@ -24,6 +32,7 @@ export interface Settings {
 
 const DEFAULTS: Settings = {
   theme: 'auto',
+  experience: 'adaptive',
   accent: '#5CB8B2',
   density: 'balanced',
   atmosphere: 'signature',
@@ -45,10 +54,31 @@ export const useSettings = create<SettingsStore>()(
     }),
     {
       name: 'pocket-agent:settings',
-      version: 1,
+      version: 2,
+      migrate: (persisted) => ({
+        ...DEFAULTS,
+        ...(persisted as Partial<Settings>),
+        experience: normalizeExperience(
+          (persisted as Partial<Settings>)?.experience,
+        ),
+      }),
     },
   ),
 )
+
+function normalizeExperience(value: unknown): ExperienceMode {
+  switch (value) {
+    case 'adaptive':
+    case 'observatory':
+    case 'field_journal':
+    case 'daily_edition':
+    case 'workbench':
+    case 'quiet_atrium':
+      return value
+    default:
+      return DEFAULTS.experience
+  }
+}
 
 /** Resolve `theme = 'auto'` to an effective 'light' | 'dark' value. */
 export function resolveTheme(pref: ThemePreference): 'light' | 'dark' {

@@ -1,0 +1,253 @@
+[data-experience='daily_edition'] {
+  --bg: #ECE8DD;
+  --bg-deep: #DBD5C6;
+  --surface-1: rgba(20, 19, 14, 0.045);
+  --surface-2: rgba(20, 19, 14, 0.075);
+  --surface-3: rgba(20, 19, 14, 0.12);
+  --hairline: rgba(11, 11, 8, 0.16);
+  --hairline-strong: rgba(11, 11, 8, 0.32);
+  --text: #14130E;
+  --text-2: #5A584F;
+  --text-3: #8A8779;
+  --text-4: #B8B3A2;
+  --signal: #A83A2D;
+  --signal-bright: #C94A3A;
+  --signal-deep: #6F241C;
+  --signal-dim: rgba(168, 58, 45, 0.13);
+  --signal-glow: rgba(168, 58, 45, 0.18);
+  --signal-wash: rgba(168, 58, 45, 0.05);
+  --cool: #4F6575;
+  --cool-dim: rgba(79, 101, 117, 0.13);
+  --cool-glow: rgba(79, 101, 117, 0.18);
+  --green: #4F7F5D;
+  --green-dim: rgba(79, 127, 93, 0.13);
+  --amber: #9C7A2D;
+  --amber-dim: rgba(156, 122, 45, 0.13);
+  --red: #A83A2D;
+  --red-dim: rgba(168, 58, 45, 0.13);
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: 'DM Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --device-border: rgba(20, 19, 14, 0.14);
+  --device-shadow: 0 0 0 1px rgba(20, 19, 14, 0.12),
+                   0 60px 140px rgba(20,19,14,0.22),
+                   inset 0 1px 0 rgba(255,255,255,0.55);
+  --grain-blend: multiply;
+  --grain-opacity: 0.26;
+  --sheet-scrim: rgba(20, 19, 14, 0.32);
+  --sheet-shadow: 0 -24px 60px rgba(20,19,14,0.24), 0 -1px 0 rgba(20,19,14,0.06) inset;
+  --sheet-grip: rgba(20,19,14,0.24);
+  --dock-bg: rgba(236, 232, 221, 0.94);
+  --dock-shadow: 0 24px 48px rgba(20,19,14,0.20);
+  --experience-backdrop:
+    radial-gradient(ellipse 80% 48% at 50% 10%, rgba(168, 58, 45, 0.10), transparent 62%),
+    radial-gradient(ellipse 70% 42% at 50% 92%, rgba(20, 19, 14, 0.08), transparent 64%);
+  --experience-nav-bg: linear-gradient(to top, rgba(236, 232, 221, 0.96) 0%, rgba(236, 232, 221, 0.84) 58%, transparent 100%);
+}
+
+[data-theme='dark'][data-experience='daily_edition'] {
+  --bg: #171611;
+  --bg-deep: #0E0D0A;
+  --surface-1: rgba(236, 232, 221, 0.045);
+  --surface-2: rgba(236, 232, 221, 0.075);
+  --surface-3: rgba(236, 232, 221, 0.12);
+  --hairline: rgba(236, 232, 221, 0.12);
+  --hairline-strong: rgba(236, 232, 221, 0.24);
+  --text: #ECE8DD;
+  --text-2: #B8B09D;
+  --text-3: #7E7666;
+  --text-4: #4C463B;
+  --device-border: rgba(236, 232, 221, 0.10);
+  --device-shadow: 0 0 0 1px rgba(0,0,0,0.85),
+                   0 60px 140px rgba(0,0,0,0.68),
+                   inset 0 1px 0 rgba(236,232,221,0.05);
+  --grain-blend: overlay;
+  --grain-opacity: 0.42;
+  --sheet-scrim: rgba(0,0,0,0.55);
+  --sheet-shadow: 0 -24px 60px rgba(0,0,0,0.58), 0 -1px 0 rgba(236,232,221,0.06) inset;
+  --sheet-grip: rgba(236,232,221,0.18);
+  --dock-bg: rgba(23, 22, 17, 0.96);
+  --dock-shadow: 0 24px 48px rgba(0,0,0,0.55);
+  --experience-backdrop:
+    radial-gradient(ellipse 80% 48% at 50% 10%, rgba(168, 58, 45, 0.14), transparent 62%),
+    radial-gradient(ellipse 70% 42% at 50% 92%, rgba(236, 232, 221, 0.05), transparent 64%);
+  --experience-nav-bg: linear-gradient(to top, rgba(23, 22, 17, 0.96) 0%, rgba(23, 22, 17, 0.84) 58%, transparent 100%);
+}
+
+[data-experience='daily_edition'] .artifact {
+  border-radius: 0;
+  border-top: 2px solid var(--hairline-strong);
+  background: transparent;
+}
+
+[data-experience='daily_edition'] .artifact-header h3 {
+  font-size: 21px;
+  line-height: 1.05;
+}
+
+[data-experience='daily_edition'] .presence-wire {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  font-family: var(--mono);
+}
+
+[data-experience='daily_edition'] .presence-wire.state-ingesting::before,
+[data-experience='daily_edition'] .presence-wire.state-drafting::before {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--signal-dim) 0 12px,
+    transparent 12px 24px
+  );
+  animation-duration: 1.4s;
+}
+
+[data-experience='daily_edition'] .presence-wire.state-thinking::before {
+  animation-duration: 3.2s;
+}
+
+[data-experience='daily_edition'] .presence-wire.state-watching::before {
+  animation-duration: 7s;
+  opacity: 0.18;
+}
+
+[data-experience='daily_edition'] .presence-wire.state-drafting .presence-readout::before {
+  content: 'FILING ';
+}
+
+[data-experience='daily_edition'] .detail-edition .detail-chrome {
+  border-top: 3px double var(--hairline-strong);
+  border-bottom: 3px double var(--hairline-strong);
+  text-align: center;
+}
+
+[data-experience='daily_edition'] .sessions-edition .sessions-masthead {
+  text-align: center;
+  border-bottom: 3px double var(--hairline-strong);
+  margin: 0 var(--screen-pad) var(--space-md);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+[data-experience='daily_edition'] .sessions-edition .sessions-tabs {
+  justify-content: center;
+}
+
+[data-experience='daily_edition'] .sessions-edition .session-card-shell {
+  grid-template-columns: 48px minmax(0, 1fr);
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-color: var(--hairline-strong);
+  background: transparent;
+}
+
+[data-experience='daily_edition'] .sessions-edition .session-card-title {
+  font-size: 19px;
+  line-height: 1.08;
+}
+
+[data-experience='daily_edition'] .artifact-component-data_row,
+[data-experience='daily_edition'] .artifact-component-bar_chart,
+[data-experience='daily_edition'] .artifact-component-line_chart {
+  border: 1px solid var(--hairline);
+  padding: 10px;
+  background: var(--surface-1);
+}
+
+[data-experience='daily_edition'] :is(
+  .artifact-component-heading,
+  .artifact-component-paragraph,
+  .artifact-component-markdown,
+  .artifact-component-annotated_text,
+  .artifact-component-transcript,
+  .artifact-component-session_brief
+) {
+  padding: 2px 0 8px;
+  column-rule: 1px solid var(--hairline);
+}
+
+[data-experience='daily_edition'] :is(
+  .artifact-component-calculation,
+  .artifact-component-assumption_list,
+  .artifact-component-confidence_band,
+  .artifact-component-counter_proposal,
+  .artifact-component-tradeoff_slider,
+  .artifact-component-decision_matrix,
+  .artifact-component-pros_cons,
+  .artifact-component-ranking,
+  .artifact-component-plan_card,
+  .artifact-component-checkpoint,
+  .artifact-component-what_if,
+  .artifact-component-decision_tree,
+  .artifact-component-agent_tasks,
+  .artifact-component-deferred_list
+) {
+  border-top: 2px solid var(--hairline-strong);
+  border-bottom: 1px solid var(--hairline);
+  padding: 10px 0;
+  background: linear-gradient(90deg, var(--signal-dim), transparent 34%);
+}
+
+[data-experience='daily_edition'] :is(
+  .artifact-component-table,
+  .artifact-component-key_value_list,
+  .artifact-component-status_list,
+  .artifact-component-sparkline,
+  .artifact-component-progress,
+  .artifact-component-timeline,
+  .artifact-component-comparison,
+  .artifact-component-calendar_view,
+  .artifact-component-heatmap,
+  .artifact-component-map,
+  .artifact-component-image,
+  .artifact-component-annotated_image,
+  .artifact-component-html_embed,
+  .artifact-component-network,
+  .artifact-component-tree,
+  .artifact-component-sankey
+) {
+  border: 1px solid var(--hairline);
+  padding: 10px;
+  background: var(--surface-1);
+}
+
+[data-experience='daily_edition'] :is(
+  .artifact-component-schedule_picker,
+  .artifact-component-trigger_proposal,
+  .artifact-component-reflex_proposal,
+  .artifact-component-timer,
+  .artifact-component-counter,
+  .artifact-component-scratchpad,
+  .artifact-component-draft_review,
+  .artifact-component-diff
+) {
+  border-left: 5px solid var(--signal);
+  padding: 10px 0 10px 12px;
+}
+
+[data-experience='daily_edition'] :is(
+  .artifact-component-alert,
+  .artifact-component-checklist,
+  .artifact-component-question_set,
+  .artifact-component-divider
+) {
+  border-top: 1px solid var(--hairline-strong);
+  border-bottom: 1px solid var(--hairline-strong);
+  padding: 10px 0;
+}
+
+[data-experience='daily_edition'] .artifact-component-sources,
+[data-experience='daily_edition'] .artifact-component-link_preview {
+  border-top: 1px solid var(--hairline-strong);
+  padding-top: 8px;
+}
+
+[data-experience='daily_edition'] .artifact-component-quote {
+  border-left: 4px solid var(--signal);
+  padding-left: 12px;
+}
+
+[data-experience='daily_edition'] .c-question-set {
+  border-top: 2px solid var(--hairline-strong);
+  padding-top: 12px;
+}

@@ -3,7 +3,8 @@
 
 import type { JSX } from 'react'
 
-import { ScanBar, ScreenHead, type ScanState } from '../components/shell/Shell'
+import { AgentPresence } from '../components/shell/AgentPresence'
+import { ScreenHead, type ScanState } from '../components/shell/Shell'
 import { useAppStore } from '../store/useAppStore'
 
 interface StateCard {
@@ -124,7 +125,7 @@ export function AgentStatesScreen(): JSX.Element {
             >
               {c.name}
             </div>
-            <ScanBar
+            <AgentPresence
               state={c.state}
               text={c.text}
               detail={c.detail}

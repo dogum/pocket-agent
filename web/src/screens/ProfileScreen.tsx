@@ -2,6 +2,8 @@ import { useEffect, useState, type JSX } from 'react'
 
 import { Icon, type IconName } from '../components/icons/Icon'
 import { StatusGlyph } from '../components/shell/Shell'
+import { EXPERIENCES } from '../design/experience'
+import { useResolvedExperience } from '../design/useExperience'
 import { api } from '../lib/api'
 import {
   permissionState,
@@ -12,6 +14,7 @@ import { useAppStore } from '../store/useAppStore'
 import {
   type Atmosphere,
   type Density,
+  type ExperienceMode,
   type ThemePreference,
   useSettings,
 } from '../store/useSettings'
@@ -27,8 +30,8 @@ const ACCENTS: Array<{ hex: string; name: string; note?: string }> = [
 
 const THEMES: Array<{ id: ThemePreference; name: string; desc: string; preview: string }> = [
   { id: 'auto', name: 'Auto', desc: 'Follow OS', preview: 'linear-gradient(135deg,#08080A 0%,#08080A 50%,#F4F2ED 50%,#F4F2ED 100%)' },
-  { id: 'light', name: 'Dawn', desc: 'Cool ivory, ink type', preview: '#F4F2ED' },
-  { id: 'dark', name: 'Night', desc: 'Deep field, cool grain', preview: '#08080A' },
+  { id: 'light', name: 'Light', desc: 'Bright variant', preview: '#F4F2ED' },
+  { id: 'dark', name: 'Dark', desc: 'Deep variant', preview: '#08080A' },
 ]
 
 const DENSITIES: Array<{ id: Density; name: string; desc: string }> = [
@@ -53,6 +56,7 @@ export function ProfileScreen(): JSX.Element {
   const go = useAppStore((s) => s.go)
 
   const settings = useSettings()
+  const resolvedExperience = useResolvedExperience()
 
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState(profile?.name ?? '')
@@ -209,7 +213,18 @@ export function ProfileScreen(): JSX.Element {
         {/* ── Appearance ────────────────────────────────────────── */}
         <SectionTag>Appearance</SectionTag>
 
-        <SettingCard label="Theme" hint="Observatory at night, dawn, or follow your OS">
+        <SettingCard
+          label="Experience"
+          hint="Choose the visual world the app uses, or let it adapt as artifacts accumulate."
+        >
+          <ExperienceGrid
+            value={settings.experience}
+            resolved={resolvedExperience}
+            onChange={(value) => settings.set('experience', value)}
+          />
+        </SettingCard>
+
+        <SettingCard label="Theme" hint="Use the light or dark variant for the selected experience.">
           <div style={{ display: 'flex', gap: 6 }}>
             {THEMES.map((opt) => (
               <button
@@ -527,6 +542,43 @@ function RadioRows<T extends string>({
           </div>
         </button>
       ))}
+    </div>
+  )
+}
+
+function ExperienceGrid({
+  value,
+  resolved,
+  onChange,
+}: {
+  value: ExperienceMode
+  resolved: Exclude<ExperienceMode, 'adaptive'>
+  onChange: (value: ExperienceMode) => void
+}): JSX.Element {
+  const options = Object.values(EXPERIENCES)
+  return (
+    <div className="experience-grid">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={
+            'experience-option' + (value === option.id ? ' selected' : '')
+          }
+          onClick={() => onChange(option.id)}
+        >
+          <span className={'experience-swatch swatch-' + option.id} />
+          <span>
+            <strong>{option.shortName}</strong>
+            <small>{option.description}</small>
+          </span>
+        </button>
+      ))}
+      {value === 'adaptive' && (
+        <div className="experience-resolved-note">
+          Currently using {EXPERIENCES[resolved].shortName}
+        </div>
+      )}
     </div>
   )
 }

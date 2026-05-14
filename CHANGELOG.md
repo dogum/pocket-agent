@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Phase 23: Experience Modes (five visual worlds, one substrate)
+
+The product thesis becomes visible: same sessions, same artifacts, same agent loop — different metaphor, layout, motion, typography, surface treatment, and copy. The user picks one of six options in Profile (Adaptive plus five concrete experiences), or lets the app pick based on how artifacts accumulate.
+
+- **Five experience modes.**
+  - *Observatory* — instrument watching territories. Night field, teal signal, constellations.
+  - *Field Journal* — private notebook the agent fills. Cream paper, ruled lines, ink margins, volumes.
+  - *Daily Edition* — newspaper / editorial desk. Broadsheet masthead, hero + secondary stories, wire ticker.
+  - *Workbench* — shop floor. Industrial clarity, work zones, stage rails, sign-offs.
+  - *Quiet Atrium* — pinboard / co-inhabited room. Soft wall, pinned cards, ambient memory.
+- **Adaptive resolution.** A deterministic resolver picks a concrete mode for `adaptive` users from artifact count, active-session count, and high-priority ratio. Same inputs → same mode; no shuffling on refresh.
+- **Per-experience design tokens.** Five scoped CSS files override `--bg`, `--text`, `--signal`, `--serif`, `--device-shadow`, `--sheet-shadow`, `--dock-bg`, etc. Each mode has light *and* dark variants so flipping Theme inside a mode produces a coherent palette (no leftover Observatory tones).
+- **Experience-aware Agent Presence.** `<AgentPresence>` renders distinct motion per mode × state: ink-line / wire-ticker / scan-sweep / bench-tray / room-breath across `ingesting | thinking | drafting | watching`. The crafted labels ("Wire active", "Bench running", "The agent is in the room") surface during active runs *and* idle.
+- **Five Home surfaces.** `ObservatoryHome` (constellation strip + artifact stack), `FieldJournalHome` (ruled entries with margin datelines), `DailyEditionHome` (hero + secondary + wire), `WorkbenchHome` (work zones derived from artifact components), `QuietAtriumHome` (rotated pinned cards). Same store data, mode-specific composition.
+- **Five Artifact Detail surfaces.** Each wraps a shared `DetailFrame` with mode-specific chrome (catalog label / page number / field number / job number / picked-up-from). Reply, question-set submit, action handlers, history, and session link reused unchanged. Workbench's stage rail derives the active stage from artifact components: `question_set` → awaiting sign-off; `draft_review` → drafting; `checklist` → ready for review; default → on deck.
+- **Five Sessions surfaces.** Each renders sessions through the mode's metaphor — Volumes (Journal), Beats (Edition), Constellations (Observatory), Projects (Workbench), Rooms (Atrium) — with bespoke per-card decoration (constellation mini-chart, journal spine, edition strip, project tab, room pin) and stage meter (Workbench).
+- **Per-mode artifact-component reinterpretation.** Each component is wrapped with `artifact-component artifact-component-${type}` so CSS can reinterpret it inside an artifact: ruled marginalia in Journal, footnotes in Edition, instrument plates in Observatory, spec plates in Workbench, soft inset cards in Atrium. Coverage spans v1 + all 30 v2 component types.
+- **Adaptive identity helpers.** `deriveSessionIdentity` and `deriveArtifactIdentity` (FNV-1a-style hashes) produce stable per-session/per-artifact volume numbers, job labels, page labels, pin rotations, and constellation points — so refresh never re-shuffles the room.
+- **IngestSheet / OnboardingScreen / ReplySheet / AgentStatesScreen** all adopt the experience-aware presence and copy. The capture verb becomes "Pour" / "File" / "Record" / "Dispatch" / "Pin" depending on the active mode.
+- **Settings v2 migration.** New `experience` field with a defensive `normalizeExperience` whitelist; existing users default to `adaptive`. Theme labels are now `Light` / `Dark` (was `Dawn` / `Night`) — the variant meaning shifts per experience, so the labels stay neutral.
+- **Plural-aware noun helper.** `pluralize` handles `dispatch → dispatches`, `box → boxes`, `entry → entries`, vowel-y exceptions — so Daily Edition's session-detail label reads "Dispatches" not "Dispatchs". One source of truth at `web/src/screens/sessions/utils.ts`.
+
 ### Added — Phase 22: Vocabulary v2 (the agent's thinking voice)
 
 The component vocabulary jumps from 24 to 54. The new 30 give the agent the verbs it was previously missing — *show the math*, *list assumptions*, *show uncertainty*, *propose and let the user accept/modify/reject in parts*, *plan over time*, *checkpoint a process*, *embed a small tool*.

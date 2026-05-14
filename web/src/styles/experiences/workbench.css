@@ -1,0 +1,236 @@
+[data-experience='workbench'] {
+  --bg: #1A1715;
+  --bg-deep: #0F0D0B;
+  --surface-1: rgba(217, 210, 192, 0.055);
+  --surface-2: rgba(217, 210, 192, 0.085);
+  --surface-3: rgba(217, 210, 192, 0.13);
+  --hairline: rgba(217, 210, 192, 0.12);
+  --hairline-strong: rgba(217, 210, 192, 0.24);
+  --text: #D9D2C0;
+  --text-2: #9A917F;
+  --text-3: #5F584D;
+  --text-4: #3C3630;
+  --signal: #E0933E;
+  --signal-bright: #F1AD5F;
+  --signal-deep: #A86121;
+  --signal-dim: rgba(224, 147, 62, 0.14);
+  --signal-glow: rgba(224, 147, 62, 0.24);
+  --signal-wash: rgba(224, 147, 62, 0.06);
+  --cool: #2D7B85;
+  --cool-dim: rgba(45, 123, 133, 0.16);
+  --cool-glow: rgba(45, 123, 133, 0.24);
+  --green: #6EA166;
+  --green-dim: rgba(110, 161, 102, 0.14);
+  --amber: #D4A82E;
+  --amber-dim: rgba(212, 168, 46, 0.14);
+  --red: #B74A32;
+  --red-dim: rgba(183, 74, 50, 0.14);
+  --serif: 'Arial Black', Impact, system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --device-border: rgba(217, 210, 192, 0.12);
+  --device-shadow: 0 0 0 1px rgba(0,0,0,0.82),
+                   0 60px 140px rgba(0,0,0,0.68),
+                   inset 0 1px 0 rgba(217,210,192,0.06);
+  --grain-blend: overlay;
+  --grain-opacity: 0.50;
+  --sheet-scrim: rgba(0,0,0,0.55);
+  --sheet-shadow: 0 -24px 60px rgba(0,0,0,0.58), 0 -1px 0 rgba(217,210,192,0.06) inset;
+  --sheet-grip: rgba(217,210,192,0.18);
+  --dock-bg: rgba(26, 23, 21, 0.96);
+  --dock-shadow: 0 24px 48px rgba(0,0,0,0.58);
+  --experience-backdrop:
+    radial-gradient(ellipse 70% 45% at 50% 12%, rgba(224,147,62,0.11), transparent 62%),
+    radial-gradient(ellipse 60% 38% at 50% 90%, rgba(45,123,133,0.08), transparent 60%);
+  --experience-nav-bg: linear-gradient(to top, rgba(26,23,21,0.96) 0%, rgba(26,23,21,0.84) 58%, transparent 100%);
+}
+
+[data-theme='light'][data-experience='workbench'] {
+  --bg: #EDE8D9;
+  --bg-deep: #D5CDB7;
+  --surface-1: rgba(21, 17, 13, 0.045);
+  --surface-2: rgba(21, 17, 13, 0.075);
+  --surface-3: rgba(21, 17, 13, 0.12);
+  --hairline: rgba(21, 17, 13, 0.14);
+  --hairline-strong: rgba(21, 17, 13, 0.28);
+  --text: #15110D;
+  --text-2: #3A3328;
+  --text-3: #6E6454;
+  --text-4: #9A917F;
+  --device-border: rgba(21, 17, 13, 0.14);
+  --device-shadow: 0 0 0 1px rgba(21,17,13,0.12),
+                   0 60px 140px rgba(21,17,13,0.24),
+                   inset 0 1px 0 rgba(255,255,255,0.55);
+  --grain-blend: multiply;
+  --grain-opacity: 0.30;
+  --sheet-scrim: rgba(21,17,13,0.32);
+  --sheet-shadow: 0 -24px 60px rgba(21,17,13,0.25), 0 -1px 0 rgba(21,17,13,0.07) inset;
+  --sheet-grip: rgba(21,17,13,0.24);
+  --dock-bg: rgba(237, 232, 217, 0.96);
+  --dock-shadow: 0 24px 48px rgba(21,17,13,0.22);
+  --experience-backdrop:
+    radial-gradient(ellipse 70% 45% at 50% 12%, rgba(224,147,62,0.14), transparent 62%),
+    radial-gradient(ellipse 60% 38% at 50% 90%, rgba(21,17,13,0.08), transparent 60%);
+  --experience-nav-bg: linear-gradient(to top, rgba(237,232,217,0.96) 0%, rgba(237,232,217,0.84) 58%, transparent 100%);
+}
+
+[data-experience='workbench'] .artifact,
+[data-experience='workbench'] .work-zone,
+[data-experience='workbench'] .session-card {
+  border-radius: 3px;
+  border: 1px solid var(--hairline-strong);
+}
+
+[data-experience='workbench'] .artifact::before {
+  content: 'WORKPIECE';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+[data-experience='workbench'] .presence-bench {
+  border-radius: 3px;
+  border-left: 4px solid var(--signal);
+}
+
+[data-experience='workbench'] .presence-bench.state-ingesting::before {
+  animation-duration: 1.8s;
+}
+
+[data-experience='workbench'] .presence-bench.state-thinking .presence-mark {
+  animation: spin 3.8s linear infinite;
+}
+
+[data-experience='workbench'] .presence-bench.state-drafting {
+  border-left-color: var(--amber);
+}
+
+[data-experience='workbench'] .presence-bench.state-drafting::before {
+  animation-duration: 1.2s;
+  opacity: 0.7;
+}
+
+[data-experience='workbench'] .presence-bench.state-watching::before {
+  opacity: 0.20;
+  animation-duration: 6.5s;
+}
+
+[data-experience='workbench'] .btn.primary {
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+[data-experience='workbench'] .sessions-workbench .sessions-masthead {
+  border-bottom: 1px solid var(--hairline-strong);
+}
+
+[data-experience='workbench'] .sessions-workbench .session-card-shell {
+  grid-template-columns: 70px minmax(0, 1fr);
+  border-radius: 3px;
+  border-color: var(--hairline-strong);
+  background: linear-gradient(180deg, var(--surface-1), transparent);
+}
+
+[data-experience='workbench'] .sessions-workbench .session-card-title {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[data-experience='workbench'] .artifact-component-data_row,
+[data-experience='workbench'] .artifact-component-key_value_list,
+[data-experience='workbench'] .artifact-component-status_list,
+[data-experience='workbench'] .artifact-component-table {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-1);
+  border-radius: 3px;
+  padding: 8px;
+}
+
+[data-experience='workbench'] .artifact-component-question_set,
+[data-experience='workbench'] .artifact-component-checklist {
+  border-left: 4px solid var(--signal);
+  background: var(--surface-1);
+  padding: 10px;
+}
+
+[data-experience='workbench'] :is(
+  .artifact-component-calculation,
+  .artifact-component-assumption_list,
+  .artifact-component-confidence_band,
+  .artifact-component-counter_proposal,
+  .artifact-component-tradeoff_slider,
+  .artifact-component-decision_matrix,
+  .artifact-component-pros_cons,
+  .artifact-component-ranking,
+  .artifact-component-plan_card,
+  .artifact-component-checkpoint,
+  .artifact-component-what_if,
+  .artifact-component-decision_tree,
+  .artifact-component-session_brief,
+  .artifact-component-agent_tasks,
+  .artifact-component-deferred_list,
+  .artifact-component-schedule_picker,
+  .artifact-component-trigger_proposal,
+  .artifact-component-reflex_proposal
+) {
+  border: 1px solid var(--hairline-strong);
+  border-left: 5px solid var(--signal);
+  border-radius: 3px;
+  padding: 10px;
+  background: var(--surface-1);
+}
+
+[data-experience='workbench'] :is(
+  .artifact-component-sparkline,
+  .artifact-component-line_chart,
+  .artifact-component-bar_chart,
+  .artifact-component-progress,
+  .artifact-component-timeline,
+  .artifact-component-comparison,
+  .artifact-component-map,
+  .artifact-component-calendar_view,
+  .artifact-component-heatmap,
+  .artifact-component-network,
+  .artifact-component-tree,
+  .artifact-component-sankey,
+  .artifact-component-html_embed,
+  .artifact-component-image,
+  .artifact-component-annotated_image
+) {
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+  padding: 8px;
+  background: var(--surface-2);
+}
+
+[data-experience='workbench'] :is(
+  .artifact-component-heading,
+  .artifact-component-paragraph,
+  .artifact-component-markdown,
+  .artifact-component-annotated_text,
+  .artifact-component-transcript,
+  .artifact-component-draft_review,
+  .artifact-component-diff,
+  .artifact-component-quote,
+  .artifact-component-divider,
+  .artifact-component-sources,
+  .artifact-component-link_preview,
+  .artifact-component-scratchpad,
+  .artifact-component-timer,
+  .artifact-component-counter
+) {
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 3px;
+  padding: 9px;
+}
+
+[data-experience='workbench'] .artifact-component-alert {
+  border: 1px solid var(--red);
+  border-left-width: 5px;
+  padding: 8px;
+}

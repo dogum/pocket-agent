@@ -19,6 +19,7 @@ import { SourceDetailScreen } from './screens/SourceDetailScreen'
 import { SourcesScreen } from './screens/SourcesScreen'
 import { TriggersScreen } from './screens/TriggersScreen'
 import { VocabularyV2Screen } from './screens/VocabularyV2Screen'
+import { resolveExperience } from './design/experience'
 import { useAppStore } from './store/useAppStore'
 import { resolveTheme, useSettings } from './store/useSettings'
 
@@ -31,9 +32,12 @@ export function App(): JSX.Element {
   const setData = useAppStore((s) => s.setData)
   const loaded = useAppStore((s) => s.loaded)
   const ambientRun = useAppStore((s) => s.ambientRun)
+  const sessions = useAppStore((s) => s.sessions)
+  const artifacts = useAppStore((s) => s.artifacts)
   useAmbientEvents()
 
   const theme = useSettings((s) => s.theme)
+  const experience = useSettings((s) => s.experience)
   const accent = useSettings((s) => s.accent)
   const density = useSettings((s) => s.density)
   const atmosphere = useSettings((s) => s.atmosphere)
@@ -42,10 +46,13 @@ export function App(): JSX.Element {
   useEffect(() => {
     const root = document.documentElement
     const apply = (): void => {
+      const effectiveExperience = resolveExperience(experience, sessions, artifacts)
       root.setAttribute('data-theme', resolveTheme(theme))
       root.setAttribute('data-density', density)
       root.setAttribute('data-scan', atmosphere)
-      root.style.setProperty('--signal', accent)
+      root.setAttribute('data-experience', effectiveExperience)
+      root.setAttribute('data-experience-setting', experience)
+      applyAccent(root, accent)
     }
     apply()
     if (theme !== 'auto') return
@@ -53,7 +60,7 @@ export function App(): JSX.Element {
     const onChange = (): void => apply()
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [theme, accent, density, atmosphere])
+  }, [theme, accent, density, atmosphere, experience, sessions, artifacts])
 
   // ── Initial server-state fetch ─────────────────────────────────────
   useEffect(() => {
@@ -181,6 +188,57 @@ export function App(): JSX.Element {
       <ConfirmDialog />
     </Device>
   )
+}
+
+function applyAccent(root: HTMLElement, accent: string): void {
+  const rgb = parseHex(accent) ?? parseHex('#5CB8B2')!
+  const hex = toHex(rgb)
+  const bright = mix(rgb, { r: 255, g: 255, b: 255 }, 0.24)
+  const deep = mix(rgb, { r: 0, g: 0, b: 0 }, 0.34)
+
+  root.style.setProperty('--signal', hex)
+  root.style.setProperty('--signal-bright', toHex(bright))
+  root.style.setProperty('--signal-deep', toHex(deep))
+  root.style.setProperty('--signal-dim', rgba(rgb, 0.14))
+  root.style.setProperty('--signal-glow', rgba(rgb, 0.26))
+  root.style.setProperty('--signal-wash', rgba(rgb, 0.06))
+}
+
+function parseHex(value: string): { r: number; g: number; b: number } | null {
+  const normalized = value.trim().replace(/^#/, '')
+  const expanded =
+    normalized.length === 3
+      ? normalized.split('').map((part) => part + part).join('')
+      : normalized
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return null
+  return {
+    r: Number.parseInt(expanded.slice(0, 2), 16),
+    g: Number.parseInt(expanded.slice(2, 4), 16),
+    b: Number.parseInt(expanded.slice(4, 6), 16),
+  }
+}
+
+function mix(
+  from: { r: number; g: number; b: number },
+  to: { r: number; g: number; b: number },
+  amount: number,
+): { r: number; g: number; b: number } {
+  return {
+    r: Math.round(from.r + (to.r - from.r) * amount),
+    g: Math.round(from.g + (to.g - from.g) * amount),
+    b: Math.round(from.b + (to.b - from.b) * amount),
+  }
+}
+
+function toHex({ r, g, b }: { r: number; g: number; b: number }): string {
+  return '#' + [r, g, b].map((part) => part.toString(16).padStart(2, '0')).join('')
+}
+
+function rgba(
+  { r, g, b }: { r: number; g: number; b: number },
+  alpha: number,
+): string {
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function currentTime(): string {

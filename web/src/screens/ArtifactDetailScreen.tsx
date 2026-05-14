@@ -6,8 +6,7 @@ import type {
   ArtifactVersion,
   ReflexProposalComponent,
 } from '@shared/index'
-import { ArtifactDetail, safeHref } from '../components/artifact/ArtifactRenderer'
-import { Icon } from '../components/icons/Icon'
+import { safeHref } from '../components/artifact/ArtifactRenderer'
 import { ScreenHead } from '../components/shell/Shell'
 import { useRunDispatcher } from '../hooks/useRunDispatcher'
 import { api } from '../lib/api'
@@ -16,6 +15,7 @@ import {
   type ArtifactInteractionPayload,
 } from '../lib/artifactInteractions'
 import { artifactToMarkdown } from '../lib/artifactToMarkdown'
+import { ArtifactDetailSurface } from './artifact/ArtifactDetailSurface'
 import { useAppStore } from '../store/useAppStore'
 import { ReplySheet } from './ReplySheet'
 
@@ -293,81 +293,20 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
 
   const session = sessions.find((s) => s.id === artifact.session_id)
   return (
-    <div className="screen enter" data-screen-label="02 Artifact Detail">
-      <ScreenHead onBack={back} title={artifact.header.label} />
-      <ArtifactDetail
+    <>
+      <ArtifactDetailSurface
         artifact={artifact}
+        session={session}
+        actionFeedback={actionFeedback}
+        onBack={back}
+        onSessionOpen={(sessionId) => go({ name: 'session', id: sessionId })}
+        onReply={() => setReplyOpen(true)}
         onAction={handleAction}
         onQuestionSetSubmit={(a) => void handleQuestionSetSubmit(a)}
         onInteraction={(interaction) => void handleComponentInteraction(interaction)}
         onReflexApprove={handleReflexApprove}
         onShowHistory={() => void openHistory()}
       />
-
-      {/* Universal Reply — works for any artifact, not just ones the
-          agent flagged with a follow_up action. */}
-      <div
-        style={{
-          margin: '14px var(--screen-pad) 0',
-          display: 'flex',
-          gap: 8,
-        }}
-      >
-        <button
-          type="button"
-          className="btn primary"
-          onClick={() => setReplyOpen(true)}
-          style={{ flex: 1 }}
-        >
-          <Icon name="pen" size={14} />
-          Reply
-        </button>
-      </div>
-
-      {actionFeedback && (
-        <div
-          style={{
-            margin: '12px var(--screen-pad) 0',
-            padding: '10px 14px',
-            background: 'var(--surface-1)',
-            borderRadius: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Icon name="check" size={12} />
-          <span className="t-body-sm">{actionFeedback}</span>
-        </div>
-      )}
-      {session && (
-        <div
-          style={{
-            margin: '20px var(--screen-pad)',
-            padding: '14px 0',
-            borderTop: '1px solid var(--hairline)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Icon name="orbit" size={12} />
-          <span className="t-caption">
-            From{' '}
-            <button
-              type="button"
-              onClick={() => go({ name: 'session', id: session.id })}
-              style={{
-                textDecoration: 'underline',
-                color: 'var(--text-2)',
-                cursor: 'pointer',
-              }}
-            >
-              {session.name}
-            </button>
-          </span>
-        </div>
-      )}
       {replyOpen && (
         <ReplySheet artifact={artifact} onClose={() => setReplyOpen(false)} />
       )}
@@ -377,7 +316,7 @@ export function ArtifactDetailScreen({ id }: { id: string }): JSX.Element {
           onClose={() => setHistoryOpen(false)}
         />
       )}
-    </div>
+    </>
   )
 }
 
