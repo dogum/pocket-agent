@@ -135,10 +135,27 @@ function SessionCardView({
   const identity = deriveSessionIdentity(session)
   const tone = sessionStatusTone(session)
   const stage = sessionStage(session)
+  // Make the entire card the click target rather than the inner title.
+  // Previously only the narrow .session-card-open band was clickable —
+  // the spine, status chip row, footer, and ~80% of the card surface
+  // were dead zones, so taps that missed the title felt like the card
+  // was inert. The menu icon stops propagation so its tap still opens
+  // the menu instead of navigating.
+  const activate = (): void => onOpen()
   return (
     <article
       className={`session-card-shell session-card-${variant} tone-${identity.roomTone}`}
       data-session-noun={sessionNoun}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${sessionNoun} ${session.name}`}
+      onClick={activate}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          activate()
+        }
+      }}
     >
       <SessionDecoration session={session} variant={variant} />
       <div className="session-card-main">
@@ -160,12 +177,12 @@ function SessionCardView({
           </button>
         </div>
 
-        <button type="button" className="session-card-open" onClick={onOpen}>
+        <div className="session-card-open">
           <span className="session-card-title">{session.name}</span>
           {session.description && (
             <span className="session-card-description">{session.description}</span>
           )}
-        </button>
+        </div>
 
         {variant === 'workbench' && (
           <div className="session-stage-meter" aria-label={stage.label}>

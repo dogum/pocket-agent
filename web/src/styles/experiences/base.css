@@ -604,6 +604,14 @@
   min-height: 150px;
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
+  /* Whole card is the open trigger (role=button). Make the surface
+     feel tappable and give keyboard focus a visible ring. */
+  cursor: pointer;
+}
+
+.session-card-shell:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .session-card-shell.tone-active {
@@ -646,10 +654,8 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  text-align: left;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
+  /* The article element handles open clicks now; this block just lays
+     out the title + description. No button styling needed. */
 }
 
 .session-card-title {
