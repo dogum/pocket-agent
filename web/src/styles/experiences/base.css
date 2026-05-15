@@ -604,14 +604,6 @@
   min-height: 150px;
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
-  /* Whole card is the open trigger (role=button). Make the surface
-     feel tappable and give keyboard focus a visible ring. */
-  cursor: pointer;
-}
-
-.session-card-shell:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 2px;
 }
 
 .session-card-shell.tone-active {
@@ -654,8 +646,40 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  /* The article element handles open clicks now; this block just lays
-     out the title + description. No button styling needed. */
+  /* Native <button> styling reset — the visual block holds the title
+     + description. The ::after below extends its hit area across the
+     entire card so the spine, footer, and empty gaps are all valid
+     tap targets without us using role="button" on the container
+     (which would hide the menu button from screen readers). */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.session-card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Anchored to .session-card-shell (position: relative). Captures
+     pointer events for the whole card except where a sibling button
+     raises itself via z-index. */
+}
+
+.session-card-open:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.session-card-menu {
+  /* Sit above .session-card-open::after so menu clicks/taps still
+     reach the menu button and aren't swallowed by the overlay. */
+  position: relative;
+  z-index: 1;
 }
 
 .session-card-title {

@@ -135,33 +135,18 @@ function SessionCardView({
   const identity = deriveSessionIdentity(session)
   const tone = sessionStatusTone(session)
   const stage = sessionStage(session)
-  // Make the entire card the click target rather than the inner title.
-  // Previously only the narrow .session-card-open band was clickable —
-  // the spine, status chip row, footer, and ~80% of the card surface
-  // were dead zones, so taps that missed the title felt like the card
-  // was inert. The menu icon stops propagation so its tap still opens
-  // the menu instead of navigating.
-  const activate = (): void => onOpen()
+  // Classic "card with overlay link" pattern: the article is a plain
+  // container, the .session-card-open <button> carries an ::after
+  // pseudo with `inset: 0` that extends its hit area to cover the whole
+  // article. The menu <button> sits above the pseudo via z-index, so
+  // both buttons remain discrete interactive controls — screen readers
+  // announce them separately, keyboard focus moves through both. This
+  // avoids the role="button"-on-container regression where ARIA
+  // treated the nested menu button as presentational.
   return (
     <article
       className={`session-card-shell session-card-${variant} tone-${identity.roomTone}`}
       data-session-noun={sessionNoun}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open ${sessionNoun} ${session.name}`}
-      onClick={activate}
-      onKeyDown={(event) => {
-        // Only activate when the article ITSELF has focus, not when
-        // the event bubbled from a nested interactive (e.g. the menu
-        // button). Without this guard, pressing Enter/Space on the
-        // menu button would navigate into the session AND
-        // preventDefault could suppress the button's native click.
-        if (event.target !== event.currentTarget) return
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          activate()
-        }
-      }}
     >
       <SessionDecoration session={session} variant={variant} />
       <div className="session-card-main">
@@ -172,7 +157,7 @@ function SessionCardView({
           </span>
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn session-card-menu"
             onClick={(event) => {
               event.stopPropagation()
               onMenu()
@@ -183,12 +168,17 @@ function SessionCardView({
           </button>
         </div>
 
-        <div className="session-card-open">
+        <button
+          type="button"
+          className="session-card-open"
+          onClick={onOpen}
+          aria-label={`Open ${sessionNoun} ${session.name}`}
+        >
           <span className="session-card-title">{session.name}</span>
           {session.description && (
             <span className="session-card-description">{session.description}</span>
           )}
-        </div>
+        </button>
 
         {variant === 'workbench' && (
           <div className="session-stage-meter" aria-label={stage.label}>
