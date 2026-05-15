@@ -239,7 +239,10 @@
   color: var(--text-3);
 }
 
-.journal-entry strong,
+/* Scope the entry-title rule to .entry-body so it doesn't sweep up
+   the small teal margin labels (`<strong>{artifact.header.label}</strong>`
+   inside .entry-margin), which need their own mono/10px styling. */
+.journal-entry .entry-body strong,
 .lead-story h2,
 .workpiece strong,
 .atrium-pin strong {
