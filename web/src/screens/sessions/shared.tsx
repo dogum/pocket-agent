@@ -135,6 +135,14 @@ function SessionCardView({
   const identity = deriveSessionIdentity(session)
   const tone = sessionStatusTone(session)
   const stage = sessionStage(session)
+  // Classic "card with overlay link" pattern: the article is a plain
+  // container, the .session-card-open <button> carries an ::after
+  // pseudo with `inset: 0` that extends its hit area to cover the whole
+  // article. The menu <button> sits above the pseudo via z-index, so
+  // both buttons remain discrete interactive controls — screen readers
+  // announce them separately, keyboard focus moves through both. This
+  // avoids the role="button"-on-container regression where ARIA
+  // treated the nested menu button as presentational.
   return (
     <article
       className={`session-card-shell session-card-${variant} tone-${identity.roomTone}`}
@@ -149,7 +157,7 @@ function SessionCardView({
           </span>
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn session-card-menu"
             onClick={(event) => {
               event.stopPropagation()
               onMenu()
@@ -160,7 +168,12 @@ function SessionCardView({
           </button>
         </div>
 
-        <button type="button" className="session-card-open" onClick={onOpen}>
+        <button
+          type="button"
+          className="session-card-open"
+          onClick={onOpen}
+          aria-label={`Open ${sessionNoun} ${session.name}`}
+        >
           <span className="session-card-title">{session.name}</span>
           {session.description && (
             <span className="session-card-description">{session.description}</span>

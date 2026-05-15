@@ -584,8 +584,12 @@
   color: var(--text);
 }
 .c-comparison .col .metric {
+  /* Stack label-above-value so long values (full sentences from the
+     agent) wrap cleanly instead of overlapping the label, which the
+     side-by-side flex layout did when value length exceeded the gap. */
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 2px;
   font-size: 11px;
 }
 .c-comparison .col .metric .k {
@@ -595,7 +599,12 @@
   text-transform: uppercase;
   font-size: 9px;
 }
-.c-comparison .col .metric .v { font-family: var(--mono); color: var(--text); }
+.c-comparison .col .metric .v {
+  font-family: var(--mono);
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
 
 /* ===== 18. divider ===== */
 .c-divider {

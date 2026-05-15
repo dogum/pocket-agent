@@ -472,15 +472,24 @@
 }
 .c-decision-matrix table {
   width: 100%;
-  min-width: 420px;
   border-collapse: collapse;
   font-size: 12px;
 }
 .c-decision-matrix th,
 .c-decision-matrix td {
   border-bottom: 1px solid var(--hairline);
-  padding: 8px;
+  padding: 8px 6px;
   text-align: left;
+  vertical-align: top;
+  /* Multi-word headers like "Hosted demo" wrap at the space so the
+     option columns don't overflow the scroll wrapper. `break-word`
+     only fragments unusual long single words, leaving normal prose
+     (e.g. "Reversibility (can you switch paths cheaply?)") to wrap
+     at natural word boundaries. */
+  overflow-wrap: break-word;
+}
+.c-decision-matrix th {
+  vertical-align: bottom;
 }
 .c-decision-matrix th.recommended,
 .c-decision-matrix .recommended strong {

@@ -239,7 +239,10 @@
   color: var(--text-3);
 }
 
-.journal-entry strong,
+/* Scope the entry-title rule to .entry-body so it doesn't sweep up
+   the small teal margin labels (`<strong>{artifact.header.label}</strong>`
+   inside .entry-margin), which need their own mono/10px styling. */
+.journal-entry .entry-body strong,
 .lead-story h2,
 .workpiece strong,
 .atrium-pin strong {
@@ -643,10 +646,40 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  text-align: left;
+  /* Native <button> styling reset — the visual block holds the title
+     + description. The ::after below extends its hit area across the
+     entire card so the spine, footer, and empty gaps are all valid
+     tap targets without us using role="button" on the container
+     (which would hide the menu button from screen readers). */
+  appearance: none;
   background: transparent;
+  border: 0;
   padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
+}
+
+.session-card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Anchored to .session-card-shell (position: relative). Captures
+     pointer events for the whole card except where a sibling button
+     raises itself via z-index. */
+}
+
+.session-card-open:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.session-card-menu {
+  /* Sit above .session-card-open::after so menu clicks/taps still
+     reach the menu button and aren't swallowed by the overlay. */
+  position: relative;
+  z-index: 1;
 }
 
 .session-card-title {
