@@ -151,6 +151,12 @@ function SessionCardView({
       aria-label={`Open ${sessionNoun} ${session.name}`}
       onClick={activate}
       onKeyDown={(event) => {
+        // Only activate when the article ITSELF has focus, not when
+        // the event bubbled from a nested interactive (e.g. the menu
+        // button). Without this guard, pressing Enter/Space on the
+        // menu button would navigate into the session AND
+        // preventDefault could suppress the button's native click.
+        if (event.target !== event.currentTarget) return
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
           activate()
